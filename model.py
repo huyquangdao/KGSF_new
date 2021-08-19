@@ -569,17 +569,16 @@ class CrossModel(nn.Module):
 
         # e_e_attn, _ = compute_edge_type_aware_attn(db_user_emb, db_user_emb, db_user_emb, self.e_e_attn_weights, mask = db_attn_mask.cuda())
 
-        # w_e_attn, _ = compute_edge_type_aware_attn(graph_con_emb, db_user_emb, db_user_emb, self.w_e_attn_weights, mask = db_attn_mask.cuda())
+        w_e_attn, _ = compute_edge_type_aware_attn(graph_con_emb, db_user_emb, db_user_emb, self.w_e_attn_weights, mask = db_attn_mask.cuda())
 
-        # e_w_attn, _ = compute_edge_type_aware_attn(db_user_emb, graph_con_emb, graph_con_emb, self.e_w_attn_weights, mask = con_emb_mask.cuda())
+        e_w_attn, _ = compute_edge_type_aware_attn(db_user_emb, graph_con_emb, graph_con_emb, self.e_w_attn_weights, mask = con_emb_mask.cuda())
 
-        # con_user_emb = torch.relu(self.w_proj(torch.cat([w_w_attn, w_e_attn], dim = -1)))
-        # db_user_emb = torch.relu(self.e_proj(torch.cat([e_e_attn,  e_w_attn], dim = -1)))
+        con_user_emb = w_w_attn + w_e_attn
+        db_user_emb = e_e_attn +  e_w_attn
 
-        con_user_emb = graph_con_emb
+        # con_user_emb = graph_con_emb
         con_user_emb, _ = self.self_attn(con_user_emb, con_emb_mask.cuda())
-
-        db_user_emb, _ = self.en_self_attn(db_user_emb, db_attn_mask.cuda())
+        db_user_emb, _ = self.en_self_attn(db_user_emb )
 
         user_emb = self.user_norm(torch.cat([con_user_emb, db_user_emb], dim=-1))
         uc_gate = F.sigmoid(self.gate_norm(user_emb))
