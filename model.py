@@ -565,13 +565,13 @@ class CrossModel(nn.Module):
         graph_con_emb = con_nodes_features[concept_mask]
         con_emb_mask = concept_mask == self.concept_padding
 
-        w_w_attn = compute_edge_type_aware_attn(graph_con_emb, graph_con_emb, graph_con_emb, self.w_w_attn_weights, mask = con_emb_mask.cuda())
+        w_w_attn, _ = compute_edge_type_aware_attn(graph_con_emb, graph_con_emb, graph_con_emb, self.w_w_attn_weights, mask = con_emb_mask.cuda())
 
-        e_e_attn = compute_edge_type_aware_attn(db_user_emb, db_user_emb, db_user_emb, self.e_e_attn_weights, mask = db_attn_mask.cuda())
+        e_e_attn, _ = compute_edge_type_aware_attn(db_user_emb, db_user_emb, db_user_emb, self.e_e_attn_weights, mask = db_attn_mask.cuda())
 
-        w_e_attn = compute_edge_type_aware_attn(graph_con_emb, db_user_emb, graph_con_emb, self.w_e_attn_weights, mask = db_attn_mask.cuda())
+        w_e_attn, _ = compute_edge_type_aware_attn(graph_con_emb, db_user_emb, graph_con_emb, self.w_e_attn_weights, mask = db_attn_mask.cuda())
 
-        e_w_attn = compute_edge_type_aware_attn(db_user_emb, graph_con_emb, db_user_emb, self.e_w_attn_weights, mask = db_attn_mask.cuda())
+        e_w_attn, _ = compute_edge_type_aware_attn(db_user_emb, graph_con_emb, db_user_emb, self.e_w_attn_weights, mask = db_attn_mask.cuda())
 
         con_user_emb = torch.relu(self.w_proj(torch.cat([w_w_attn, w_e_attn], dim =-1)))  
         db_user_emb = torch.relu(self.e_proj(torch.cat([e_e_attn, e_w_attn], dim =-1)))
