@@ -209,7 +209,7 @@ class CrossModel(nn.Module):
         self.info_output_db = nn.Linear(opt["dim"], opt["n_entity"])
         self.info_output_con = nn.Linear(opt["dim"], opt["n_concept"] + 1)
         self.info_con_loss = nn.MSELoss(size_average=False, reduce=False)
-        self.info_db_loss = nn.MSELoss(size_average=False, reduce=False)
+        self.info_db_loss = nn.CrossEntropyLoss(size_average=False, reduce=False)
 
         self.user_representation_to_bias_1 = nn.Linear(opt["dim"], 512)
         self.user_representation_to_bias_2 = nn.Linear(512, len(dictionary) + 4)
@@ -473,6 +473,24 @@ class CrossModel(nn.Module):
 
         return torch.mean(info_db_loss), torch.mean(info_con_loss)
 
+
+    def infomax_loss_ver_2(
+        self,
+        db_nodes_features,
+        graph_embedding,
+        db_label,
+        mask,
+    ):
+        # batch*dim
+        # node_count*dim
+        db_scores = F.linear(graph_embedding, db_nodes_features, self.info_output_db.bias)
+        info_db_loss = (
+            torch.sum(self.info_db_loss(db_scores, db_label.cuda().float()), dim=-1)
+            * mask.cuda()
+        )
+        return torch.mean(info_db_loss)
+
+
     def forward(
         self,
         xs,
@@ -633,15 +651,24 @@ class CrossModel(nn.Module):
         # mask_mask=concept_mask!=self.concept_padding
         mask_loss = 0  # self.mask_predict_loss(m_emb, attention, xs, mask_mask.cuda(),rec.float())
 
-        info_db_loss, info_con_loss = self.infomax_loss(
-            con_nodes_features,
+        # info_db_loss, info_con_loss = self.infomax_loss(
+        #     con_nodes_features,
+        #     db_nodes_features,
+        #     con_user_emb,
+        #     db_user_emb,
+        #     con_label,
+        #     db_label,
+        #     db_con_mask,
+        # )
+
+        info_db_loss = self.infomax_loss_ver_2(
             db_nodes_features,
-            con_user_emb,
-            db_user_emb,
-            con_label,
+            user_emb,
             db_label,
             db_con_mask,
         )
+
+        info_con_loss = 0
 
         # entity_scores = F.softmax(entity_scores.cuda(), dim=-1).cuda()
 
