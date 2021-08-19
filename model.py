@@ -664,7 +664,7 @@ class CrossModel(nn.Module):
         info_db_loss = self.infomax_loss_ver_2(
             db_nodes_features,
             user_emb,
-            db_label,
+            db_label.type(torch.cuda.LongTensor),
             db_con_mask,
         )
 
