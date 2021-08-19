@@ -565,16 +565,16 @@ class CrossModel(nn.Module):
         graph_con_emb = con_nodes_features[concept_mask]
         con_emb_mask = concept_mask == self.concept_padding
 
-        # w_w_attn, _ = compute_edge_type_aware_attn(graph_con_emb, graph_con_emb, graph_con_emb, self.w_w_attn_weights, mask = con_emb_mask.cuda())
+        w_w_attn, _ = compute_edge_type_aware_attn(graph_con_emb, graph_con_emb, graph_con_emb, self.w_w_attn_weights, mask = con_emb_mask.cuda())
 
-        # e_e_attn, _ = compute_edge_type_aware_attn(db_user_emb, db_user_emb, db_user_emb, self.e_e_attn_weights, mask = db_attn_mask.cuda())
+        e_e_attn, _ = compute_edge_type_aware_attn(db_user_emb, db_user_emb, db_user_emb, self.e_e_attn_weights, mask = db_attn_mask.cuda())
 
         w_e_attn, _ = compute_edge_type_aware_attn(graph_con_emb, db_user_emb, db_user_emb, self.w_e_attn_weights, mask = db_attn_mask.cuda())
 
         e_w_attn, _ = compute_edge_type_aware_attn(db_user_emb, graph_con_emb, graph_con_emb, self.e_w_attn_weights, mask = con_emb_mask.cuda())
 
-        con_user_emb = graph_con_emb + w_e_attn
-        db_user_emb = db_user_emb +  e_w_attn
+        con_user_emb =  1/3 * (graph_con_emb + w_e_attn + w_w_attn)
+        db_user_emb = 1/3 * (db_user_emb +  e_w_attn + e_e_attn)
 
         # con_user_emb = graph_con_emb
         con_user_emb, _ = self.self_attn(con_user_emb, con_emb_mask.cuda())
