@@ -485,7 +485,7 @@ class CrossModel(nn.Module):
         # node_count*dim
         db_scores = F.linear(graph_embedding, db_nodes_features, self.info_output_db.bias)
         info_db_loss = (
-            torch.sum(self.info_db_loss(db_scores, db_label.cuda().long()), dim=-1)
+            torch.sum(self.info_db_loss(db_scores, db_label.cuda()), dim=-1)
             * mask.cuda()
         )
         return torch.mean(info_db_loss)
