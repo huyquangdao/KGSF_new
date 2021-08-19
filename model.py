@@ -556,7 +556,7 @@ class CrossModel(nn.Module):
             
             entities = torch.zeros([user_representation.shape[0]])
             pad = torch.ones([concept_mask.shape[1] - user_representation.shape[0]])
-            db_attn_mask.append(torch.cat([entities, pad], dim = -1))
+            db_attn_mask.append(torch.cat([entities, pad], dim = 0))
 
         db_user_emb = torch.stack(user_representation_list)
         db_con_mask = torch.stack(db_con_mask)
@@ -578,6 +578,7 @@ class CrossModel(nn.Module):
 
         con_user_emb = graph_con_emb
         con_user_emb, _ = self.self_attn(con_user_emb, con_emb_mask.cuda())
+
         db_user_emb, _ = self.en_self_attn(db_user_emb, db_attn_mask.cuda())
 
         user_emb = self.user_norm(torch.cat([con_user_emb, db_user_emb], dim=-1))
