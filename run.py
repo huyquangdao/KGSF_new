@@ -129,6 +129,8 @@ def setup_args():
 
     train.add_argument("-train_mim", "--train_mim", type=int, default=1)
 
+    train.add_argument("-info_loss_ratio", "--info_loss_ratio", type=float, default=0.025)
+
     return train
 
 
@@ -154,6 +156,8 @@ class TrainLoop_fusion_rec:
         else:
             self.load_data = False
         self.is_finetune = False
+
+        self.info_loss_ratio = self.opt['info_loss_ratio']
 
         self.movie_ids = pkl.load(open("data/movie_ids.pkl", "rb"))
         # Note: we cannot change the type of metrics ahead of time, so you
@@ -350,7 +354,7 @@ class TrainLoop_fusion_rec:
                 )
 
                 joint_loss = (
-                    rec_loss + info_db_loss
+                    rec_loss + self.info_loss_ratio *  info_db_loss
                 )  # +0.0*info_con_loss#+mask_loss*0.05
 
                 losses.append([rec_loss, info_db_loss])
