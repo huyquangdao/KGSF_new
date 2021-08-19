@@ -240,6 +240,10 @@ class CrossModel(nn.Module):
         self.e_w_attn_weights = nn.Linear(self.dim, self.dim)
         self.e_e_attn_weights = nn.Linear(self.dim, self.dim)
 
+        self.w_proj = nn.Linear(2 * self.dim, self.dim)
+        self.e_proj = nn.Linear(2 * self.dim, self.dim)
+
+        self.en_self_attn = SelfAttentionLayer_batch(opt["dim"], opt["dim"])
 
         w2i = json.load(open("word2index_redial.json", encoding="utf-8"))
         self.i2w = {w2i[word]: word for word in w2i}
@@ -544,7 +548,7 @@ class CrossModel(nn.Module):
                 db_attn_mask.append(torch.ones([concept_mask.shape[1]]))
                 continue
             user_representation = db_nodes_features[seed_set]  # torch can reflect
-            pad = torch.zeros([concept_mask.shape[1] - user_representation.shape[0], self.dim])
+            pad = torch.zeros([concept_mask.shape[1] - user_representation.shape[0], self.dim]).cuda()
             user_representation = torch.cat([user_representation, pad], dim = 1)
             # user_representation = self.self_attn_db(user_representation)
             user_representation_list.append(user_representation)
@@ -561,7 +565,6 @@ class CrossModel(nn.Module):
         graph_con_emb = con_nodes_features[concept_mask]
         con_emb_mask = concept_mask == self.concept_padding
 
-
         w_w_attn = compute_edge_type_aware_attn(graph_con_emb, graph_con_emb, graph_con_emb, self.w_w_attn_weights, mask = con_emb_mask)
 
         e_e_attn = compute_edge_type_aware_attn(db_user_emb, db_user_emb, db_user_emb, self.e_e_attn_weights, mask = db_attn_mask)
@@ -570,13 +573,16 @@ class CrossModel(nn.Module):
 
         e_w_attn = compute_edge_type_aware_attn(db_user_emb, graph_con_emb, db_user_emb, self.e_w_attn_weights, mask = db_attn_mask)
 
-
-        final_word_representations = w_w_attn + w_e_attn
-        final_entity_representations = e_e_attn + e_w_attn
-
+        con_user_emb = torch.relu(self.w_proj(torch.cat([w_w_attn, w_e_attn], dim =-1)))  
+        db_user_emb = torch.relu(self.e_proj(torch.cat([e_e_attn, e_w_attn], dim =-1)))
 
         con_user_emb = graph_con_emb
         con_user_emb, attention = self.self_attn(con_user_emb, con_emb_mask.cuda())
+
+        db_user_emb, _ = self.en_self_attn(db_user_emb, db_attn_mask.cuda())
+
+        
+
         user_emb = self.user_norm(torch.cat([con_user_emb, db_user_emb], dim=-1))
         uc_gate = F.sigmoid(self.gate_norm(user_emb))
         user_emb = uc_gate * db_user_emb + (1 - uc_gate) * con_user_emb
