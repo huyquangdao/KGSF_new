@@ -549,7 +549,7 @@ class CrossModel(nn.Module):
                 continue
             user_representation = db_nodes_features[seed_set]  # torch can reflect
             pad = torch.zeros([concept_mask.shape[1] - user_representation.shape[0], self.dim]).cuda()
-            user_representation = torch.cat([user_representation, pad], dim = 1)
+            user_representation = torch.cat([user_representation, pad], dim = 0)
             # user_representation = self.self_attn_db(user_representation)
             user_representation_list.append(user_representation)
             db_con_mask.append(torch.ones([1]))
