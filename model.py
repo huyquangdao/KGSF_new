@@ -573,8 +573,8 @@ class CrossModel(nn.Module):
 
         e_w_attn, _ = compute_edge_type_aware_attn(db_user_emb, graph_con_emb, graph_con_emb, self.e_w_attn_weights, mask = con_emb_mask.cuda())
 
-        con_user_emb = w_w_attn + w_e_attn
-        db_user_emb = e_e_attn +  e_w_attn
+        con_user_emb = graph_con_emb + w_e_attn
+        db_user_emb = db_user_emb +  e_w_attn
 
         # con_user_emb = graph_con_emb
         con_user_emb, _ = self.self_attn(con_user_emb, con_emb_mask.cuda())
