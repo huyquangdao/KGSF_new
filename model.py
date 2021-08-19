@@ -595,7 +595,7 @@ class CrossModel(nn.Module):
         info_db_loss, info_con_loss = self.infomax_loss(
             con_nodes_features,
             db_nodes_features,
-            con_user_emb,
+            user_emb,
             db_user_emb,
             con_label,
             db_label,
