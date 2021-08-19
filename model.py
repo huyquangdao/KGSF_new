@@ -209,7 +209,7 @@ class CrossModel(nn.Module):
         self.info_output_db = nn.Linear(opt["dim"], opt["n_entity"])
         self.info_output_con = nn.Linear(opt["dim"], opt["n_concept"] + 1)
         self.info_con_loss = nn.MSELoss(size_average=False, reduce=False)
-        self.info_db_loss = nn.CrossEntropyLoss(size_average=False, reduce=False)
+        self.info_db_loss = nn.BCELOSS(size_average=False, reduce=False)
 
         self.user_representation_to_bias_1 = nn.Linear(opt["dim"], 512)
         self.user_representation_to_bias_2 = nn.Linear(512, len(dictionary) + 4)
