@@ -33,7 +33,8 @@ def _load_kg_embeddings(entity2entityId, dim, embedding_path):
             kg_embeddings[entityId] = embedding
     return kg_embeddings
 
-def compute_edge_type_aware_attn(query, key, value, weight_matrix, mask = None):
+
+def compute_edge_type_aware_attn(query, key, value, weight_matrix, mask=None):
     """[a function computes attentive representations from the inputs]
 
     Args:
@@ -50,14 +51,14 @@ def compute_edge_type_aware_attn(query, key, value, weight_matrix, mask = None):
     """
 
     proj_query = weight_matrix(query)
-    attention_map = torch.bmm(proj_query, key.permute(0,2,1))
+    attention_map = torch.bmm(proj_query, key.permute(0, 2, 1))
 
     if mask is not None:
 
         mask = mask.unsqueeze(1).repeat(1, proj_query.shape[1], 1)
         attention_map = attention_map.masked_fill(mask > 0, -1e10)
-    attention_map = torch.softmax(attention_map, dim = -1)
-    
+    attention_map = torch.softmax(attention_map, dim=-1)
+
     attentive_representation = torch.bmm(attention_map, value)
 
     return attentive_representation, attention_map
@@ -234,14 +235,18 @@ class CrossModel(nn.Module):
 
         # self.concept_GCN4gen=GCNConv(self.dim, opt['embedding_size'])
 
+        self.w_w_attn_weights = nn.Linear(self.dim, self.dim, bias = False)
+        self.w_e_attn_weights = nn.Linear(self.dim, self.dim, bias = False)
+        self.e_w_attn_weights = nn.Linear(self.dim, self.dim, bias = False)
+        self.e_e_attn_weights = nn.Linear(self.dim, self.dim, bias = False)
 
-        self.w_w_attn_weights = nn.Linear(self.dim, self.dim)
-        self.w_e_attn_weights = nn.Linear(self.dim, self.dim)
-        self.e_w_attn_weights = nn.Linear(self.dim, self.dim)
-        self.e_e_attn_weights = nn.Linear(self.dim, self.dim)
+        self.w_0_proj = nn.Linear(self.dim, self.dim)
+        self.w_1_proj = nn.Linear(self.dim, self.dim)
+        self.w_2_proj = nn.Linear(self.dim, self.dim)
 
-        self.w_proj = nn.Linear(2 * self.dim, self.dim)
-        self.e_proj = nn.Linear(2 * self.dim, self.dim)
+        self.e_0_proj = nn.Linear(self.dim, self.dim)
+        self.e_1_proj = nn.Linear(self.dim, self.dim)
+        self.e_2_proj = nn.Linear(self.dim, self.dim)
 
         self.en_self_attn = SelfAttentionLayer_batch(opt["dim"], opt["dim"])
 
@@ -543,20 +548,24 @@ class CrossModel(nn.Module):
         for i, seed_set in enumerate(seed_sets):
             if seed_set == []:
                 # user_representation_list.append(torch.zeros(self.dim).cuda())
-                user_representation_list.append(torch.zeros( concept_mask.shape[1], self.dim).cuda())
+                user_representation_list.append(
+                    torch.zeros(concept_mask.shape[1], self.dim).cuda()
+                )
                 db_con_mask.append(torch.zeros([1]))
                 db_attn_mask.append(torch.ones([concept_mask.shape[1]]))
                 continue
             user_representation = db_nodes_features[seed_set]  # torch can reflect
-            pad = torch.zeros([concept_mask.shape[1] - user_representation.shape[0], self.dim]).cuda()
-            user_representation = torch.cat([user_representation, pad], dim = 0)
+            pad = torch.zeros(
+                [concept_mask.shape[1] - user_representation.shape[0], self.dim]
+            ).cuda()
+            user_representation = torch.cat([user_representation, pad], dim=0)
             # user_representation = self.self_attn_db(user_representation)
             user_representation_list.append(user_representation)
             db_con_mask.append(torch.ones([1]))
-            
+
             entities = torch.zeros([user_representation.shape[0]])
             pad = torch.ones([concept_mask.shape[1] - user_representation.shape[0]])
-            db_attn_mask.append(torch.cat([entities, pad], dim = 0))
+            db_attn_mask.append(torch.cat([entities, pad], dim=0))
 
         db_user_emb = torch.stack(user_representation_list)
         db_con_mask = torch.stack(db_con_mask)
@@ -565,21 +574,53 @@ class CrossModel(nn.Module):
         graph_con_emb = con_nodes_features[concept_mask]
         con_emb_mask = concept_mask == self.concept_padding
 
-        w_w_attn, _ = compute_edge_type_aware_attn(graph_con_emb, graph_con_emb, graph_con_emb, self.w_w_attn_weights, mask = con_emb_mask.cuda())
+        w_w_attn, _ = compute_edge_type_aware_attn(
+            graph_con_emb,
+            graph_con_emb,
+            graph_con_emb,
+            self.w_w_attn_weights,
+            mask=con_emb_mask.cuda(),
+        )
 
-        e_e_attn, _ = compute_edge_type_aware_attn(db_user_emb, db_user_emb, db_user_emb, self.e_e_attn_weights, mask = db_attn_mask.cuda())
+        e_e_attn, _ = compute_edge_type_aware_attn(
+            db_user_emb,
+            db_user_emb,
+            db_user_emb,
+            self.e_e_attn_weights,
+            mask=db_attn_mask.cuda(),
+        )
 
-        w_e_attn, _ = compute_edge_type_aware_attn(graph_con_emb, db_user_emb, db_user_emb, self.w_e_attn_weights, mask = db_attn_mask.cuda())
+        w_e_attn, _ = compute_edge_type_aware_attn(
+            graph_con_emb,
+            db_user_emb,
+            db_user_emb,
+            self.w_e_attn_weights,
+            mask=db_attn_mask.cuda(),
+        )
 
-        e_w_attn, _ = compute_edge_type_aware_attn(db_user_emb, graph_con_emb, graph_con_emb, self.e_w_attn_weights, mask = con_emb_mask.cuda())
+        e_w_attn, _ = compute_edge_type_aware_attn(
+            db_user_emb,
+            graph_con_emb,
+            graph_con_emb,
+            self.e_w_attn_weights,
+            mask=con_emb_mask.cuda(),
+        )
 
-        con_user_emb =  1/3 * (graph_con_emb + w_e_attn + w_w_attn)
-        db_user_emb = 1/3 * (db_user_emb +  e_w_attn + e_e_attn)
+        con_user_emb = torch.sigmoid(
+            self.w_0_proj(graph_con_emb)
+            + self.w_1_proj(w_w_attn)
+            + self.w_2_proj(w_e_attn)
+        )
+        db_user_emb = torch.sigmoid(
+            self.e_0_proj(db_user_emb)
+            + self.e_1_proj(e_e_attn)
+            + self.e_2_proj(e_w_attn)
+        )
 
         # con_user_emb = graph_con_emb
+        # type-aware graph pooling
         con_user_emb, _ = self.self_attn(con_user_emb, con_emb_mask.cuda())
-        db_user_emb, _ = self.en_self_attn(db_user_emb, db_attn_mask.cuda() )
-
+        db_user_emb, _ = self.en_self_attn(db_user_emb, db_attn_mask.cuda())
         user_emb = self.user_norm(torch.cat([con_user_emb, db_user_emb], dim=-1))
         uc_gate = F.sigmoid(self.gate_norm(user_emb))
         user_emb = uc_gate * db_user_emb + (1 - uc_gate) * con_user_emb
