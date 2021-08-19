@@ -578,7 +578,7 @@ class CrossModel(nn.Module):
 
         # con_user_emb = graph_con_emb
         con_user_emb, _ = self.self_attn(con_user_emb, con_emb_mask.cuda())
-        db_user_emb, _ = self.en_self_attn(db_user_emb )
+        db_user_emb, _ = self.en_self_attn(db_user_emb, db_attn_mask.cuda() )
 
         user_emb = self.user_norm(torch.cat([con_user_emb, db_user_emb], dim=-1))
         uc_gate = F.sigmoid(self.gate_norm(user_emb))
