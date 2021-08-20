@@ -356,7 +356,7 @@ class TrainLoop_fusion_rec:
                 )
 
                 joint_loss = (
-                    rec_loss + self.info_loss_ratio * info_db_loss
+                    rec_loss + self.info_loss_ratio * info_db_loss + self.info_loss_ratio * info_con_loss
                 )  # +0.0*info_con_loss#+mask_loss*0.05
 
                 losses.append([rec_loss, info_db_loss])

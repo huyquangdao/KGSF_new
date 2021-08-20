@@ -624,23 +624,17 @@ class CrossModel(nn.Module):
             mask=con_emb_mask.cuda(),
         )
 
-        con_user_emb = torch.relu(
-            self.w_0_proj(graph_con_emb)
-            + self.w_1_proj(w_w_attn)
-            + self.w_2_proj(w_e_attn)
-        )
-        db_user_emb = torch.relu(
-            self.e_0_proj(db_user_emb)
-            + self.e_1_proj(e_e_attn)
-            + self.e_2_proj(e_w_attn)
-        )
-
+        con_user_emb = 1/2 * (graph_con_emb + w_e_attn)
+        db_user_emb = 1/2 * (db_user_emb + e_w_attn)
+        
         # con_user_emb = graph_con_emb
         # type-aware graph pooling
         con_user_emb, _ = self.self_attn(con_user_emb, con_emb_mask.cuda())
         db_user_emb, _ = self.en_self_attn(db_user_emb, db_attn_mask.cuda())
+
         user_emb = self.user_norm(torch.cat([con_user_emb, db_user_emb], dim=-1))
         uc_gate = F.sigmoid(self.gate_norm(user_emb))
+
         user_emb = uc_gate * db_user_emb + (1 - uc_gate) * con_user_emb
         entity_scores = F.linear(user_emb, db_nodes_features, self.output_en.bias)
         # entity_scores = scores_db * gate + scores_con * (1 - gate)
@@ -655,7 +649,7 @@ class CrossModel(nn.Module):
             con_nodes_features,
             db_nodes_features,
             user_emb,
-            db_user_emb,
+            user_emb,
             con_label,
             db_label,
             db_con_mask,
