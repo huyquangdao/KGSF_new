@@ -339,7 +339,7 @@ class TrainLoop_fusion_rec:
                     gen_loss,
                     mask_loss,
                     info_db_loss,
-                    _,
+                    info_con_loss,
                 ) = self.model(
                     context.cuda(),
                     response.cuda(),
