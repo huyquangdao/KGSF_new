@@ -235,10 +235,10 @@ class CrossModel(nn.Module):
 
         # self.concept_GCN4gen=GCNConv(self.dim, opt['embedding_size'])
 
-        self.w_w_attn_weights = nn.Linear(self.dim, self.dim, bias = False)
-        self.w_e_attn_weights = nn.Linear(self.dim, self.dim, bias = False)
-        self.e_w_attn_weights = nn.Linear(self.dim, self.dim, bias = False)
-        self.e_e_attn_weights = nn.Linear(self.dim, self.dim, bias = False)
+        self.w_w_attn_weights = nn.Linear(self.dim, self.dim, bias=False)
+        self.w_e_attn_weights = nn.Linear(self.dim, self.dim, bias=False)
+        self.e_w_attn_weights = nn.Linear(self.dim, self.dim, bias=False)
+        self.e_e_attn_weights = nn.Linear(self.dim, self.dim, bias=False)
 
         self.w_0_proj = nn.Linear(self.dim, self.dim)
         self.w_1_proj = nn.Linear(self.dim, self.dim)
@@ -473,7 +473,6 @@ class CrossModel(nn.Module):
 
         return torch.mean(info_db_loss), torch.mean(info_con_loss)
 
-
     def infomax_loss_ver_2(
         self,
         db_nodes_features,
@@ -483,13 +482,14 @@ class CrossModel(nn.Module):
     ):
         # batch*dim
         # node_count*dim
-        db_scores = F.linear(graph_embedding, db_nodes_features, self.info_output_db.bias)
+        db_scores = F.linear(
+            graph_embedding, db_nodes_features, self.info_output_db.bias
+        )
         info_db_loss = (
             torch.sum(self.info_db_loss(db_scores, db_label.cuda().float()), dim=-1)
             * mask.cuda()
         )
         return torch.mean(info_db_loss)
-
 
     def forward(
         self,
@@ -624,16 +624,9 @@ class CrossModel(nn.Module):
             mask=con_emb_mask.cuda(),
         )
 
-        con_user_emb = torch.sigmoid(
-            self.w_0_proj(graph_con_emb)
-            + self.w_1_proj(w_w_attn)
-            + self.w_2_proj(w_e_attn)
-        )
-        db_user_emb = torch.sigmoid(
-            self.e_0_proj(db_user_emb)
-            + self.e_1_proj(e_e_attn)
-            + self.e_2_proj(e_w_attn)
-        )
+        con_user_emb = graph_con_emb + w_w_attn + w_e_attn
+
+        db_user_emb = db_user_emb + e_e_attn + e_w_attn
 
         # con_user_emb = graph_con_emb
         # type-aware graph pooling
@@ -660,7 +653,6 @@ class CrossModel(nn.Module):
             db_label,
             db_con_mask,
         )
-
 
         # entity_scores = F.softmax(entity_scores.cuda(), dim=-1).cuda()
 
