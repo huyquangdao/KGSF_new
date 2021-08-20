@@ -260,7 +260,7 @@ class TrainLoop_fusion_rec:
                         gen_loss,
                         mask_loss,
                         info_db_loss,
-                        _,
+                        info_con_loss,
                     ) = self.model(
                         context.cuda(),
                         response.cuda(),
@@ -276,7 +276,7 @@ class TrainLoop_fusion_rec:
                         test=False,
                     )
 
-                    joint_loss = info_db_loss  # +info_con_loss
+                    joint_loss = info_db_loss + info_con_loss
 
                     losses.append([info_db_loss])
                     self.backward(joint_loss)
