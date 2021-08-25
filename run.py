@@ -473,7 +473,7 @@ class TrainLoop_fusion_rec:
             concept_vec,
             db_vec,
             rec,
-        ) in tqdm(val_dataset_loader):
+        ) in val_dataset_loader:
             with torch.no_grad():
                 seed_sets = []
                 batch_size = context.shape[0]
