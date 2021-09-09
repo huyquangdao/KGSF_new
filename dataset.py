@@ -217,6 +217,12 @@ class dataset(object):
 
         with open('word_item_edge_list.json','w') as f:
             json.dump(new_word_item_graph, f)
+        
+        with open('word_item_edge_list.json','r') as f:
+            word_item_edge_list = json.load(f)
+        
+        print(new_word_item_graph[str(50221)])
+        print(new_word_item_graph[str(22437)])
 
         
         self.stopwords = set(
