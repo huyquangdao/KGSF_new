@@ -3,13 +3,81 @@ from tqdm import tqdm
 import pickle as pkl
 import json
 from nltk import word_tokenize
+import argparse
 import re
-from torch.utils.data.dataset import Dataset
+import seaborn as sns
+import matplotlib.pyplot as plt
+# from torch.utils.data.dataset import Dataset
 import numpy as np
 from copy import deepcopy
 from collections import defaultdict
 from random import shuffle
 import random
+
+def setup_args():
+    train = argparse.ArgumentParser()
+    train.add_argument("-random_seed", "--random_seed", type=int, default=234)
+    train.add_argument("-max_c_length", "--max_c_length", type=int, default=256)
+    train.add_argument("-max_r_length", "--max_r_length", type=int, default=30)
+    train.add_argument("-batch_size", "--batch_size", type=int, default=32)
+    train.add_argument("-max_count", "--max_count", type=int, default=5)
+    train.add_argument("-use_cuda", "--use_cuda", type=bool, default=True)
+    train.add_argument("-load_dict", "--load_dict", type=str, default=None)
+    train.add_argument("-learningrate", "--learningrate", type=float, default=1e-3)
+    train.add_argument("-optimizer", "--optimizer", type=str, default="adam")
+    train.add_argument("-momentum", "--momentum", type=float, default=0)
+    train.add_argument("-is_finetune", "--is_finetune", type=bool, default=False)
+    train.add_argument(
+        "-embedding_type", "--embedding_type", type=str, default="random"
+    )
+    train.add_argument("-epoch", "--epoch", type=int, default=2)
+    train.add_argument("-gpu", "--gpu", type=str, default="0,1")
+    train.add_argument("-gradient_clip", "--gradient_clip", type=float, default=0.1)
+    train.add_argument("-embedding_size", "--embedding_size", type=int, default=300)
+
+    train.add_argument("-n_heads", "--n_heads", type=int, default=2)
+    train.add_argument("-n_layers", "--n_layers", type=int, default=2)
+    train.add_argument("-ffn_size", "--ffn_size", type=int, default=300)
+
+    train.add_argument("-dropout", "--dropout", type=float, default=0.1)
+    train.add_argument(
+        "-attention_dropout", "--attention_dropout", type=float, default=0.0
+    )
+    train.add_argument("-relu_dropout", "--relu_dropout", type=float, default=0.1)
+
+    train.add_argument(
+        "-learn_positional_embeddings",
+        "--learn_positional_embeddings",
+        type=bool,
+        default=False,
+    )
+    train.add_argument(
+        "-embeddings_scale", "--embeddings_scale", type=bool, default=True
+    )
+
+    train.add_argument("-n_entity", "--n_entity", type=int, default=64368)
+    train.add_argument("-n_relation", "--n_relation", type=int, default=214)
+    train.add_argument("-n_concept", "--n_concept", type=int, default=29308)
+    train.add_argument("-n_con_relation", "--n_con_relation", type=int, default=48)
+    train.add_argument("-dim", "--dim", type=int, default=128)
+    train.add_argument("-n_hop", "--n_hop", type=int, default=2)
+    train.add_argument("-kge_weight", "--kge_weight", type=float, default=1)
+    train.add_argument("-l2_weight", "--l2_weight", type=float, default=2.5e-6)
+    train.add_argument("-n_memory", "--n_memory", type=float, default=32)
+    train.add_argument(
+        "-item_update_mode", "--item_update_mode", type=str, default="0,1"
+    )
+    train.add_argument("-using_all_hops", "--using_all_hops", type=bool, default=True)
+    train.add_argument("-num_bases", "--num_bases", type=int, default=8)
+    train.add_argument("-max_neighbors", "--max_neighbors", type=int, default=10)
+
+    train.add_argument("-train_mim", "--train_mim", type=int, default=1)
+
+    train.add_argument(
+        "-info_loss_ratio", "--info_loss_ratio", type=float, default=0.025
+    )
+
+    return train
 
 
 def _edge_list_1(kg, n_entity, hop):
@@ -103,6 +171,54 @@ class dataset(object):
         self.word2index = json.load(open("word2index_redial.json", encoding="utf-8"))
         self.key2index = json.load(open("key2index_3rd.json", encoding="utf-8"))
 
+        self.movie_keywords = json.load(open('attribute.json'))
+
+        print(len(self.movie_keywords))
+
+        # new_words = []
+        # for sample in self.movie_keywords:
+        #     key_words = sample['keywords']
+
+        #     re_tokenized_keywords = [word_tokenize(x) for x in key_words]
+
+        #     for x in re_tokenized_keywords:
+        #         for y in x:
+        #             if y in self.key2index:
+        #                 new_words.append(y)
+        
+        mi = 1000
+        ma = -1
+
+        all_lens = []
+        num_edges = 0
+        for sample in self.movie_keywords:
+            key_words = sample['keywords']
+            re_tokenized_keywords = [word_tokenize(x) for x in key_words][:20]
+            re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
+
+            sample['keywords'] = list(set(re_tokenized_keywords))
+
+            if len(re_tokenized_keywords) >= ma:
+                ma = len(re_tokenized_keywords)
+            
+            if len(re_tokenized_keywords) <= mi:
+                mi = len(re_tokenized_keywords)
+            
+            num_edges += len(set(re_tokenized_keywords))
+            all_lens.append(len(re_tokenized_keywords))
+
+        print(mi, ma)   
+        print(num_edges)
+
+        new_word_item_graph = defaultdict(list)
+
+        for sample in self.movie_keywords:
+            new_word_item_graph[sample['movie_id']] = sample['keywords']
+
+        with open('word_item_edge_list.json','w') as f:
+            json.dump(new_word_item_graph, f)
+
+        
         self.stopwords = set(
             [word.strip() for word in open("stopwords.txt", encoding="utf-8")]
         )
@@ -464,75 +580,76 @@ class dataset(object):
         return cases
 
 
-class CRSdataset(Dataset):
-    def __init__(self, dataset, entity_num, concept_num):
-        self.data = dataset
-        self.entity_num = entity_num
-        self.concept_num = concept_num + 1
+# class CRSdataset(Dataset):
+#     def __init__(self, dataset, entity_num, concept_num):
+#         self.data = dataset
+#         self.entity_num = entity_num
+#         self.concept_num = concept_num + 1
 
-    def __getitem__(self, index):
-        """
-        movie_vec = np.zeros(self.entity_num, dtype=np.float)
-        context, c_lengths, response, r_length, entity, movie, concept_mask, dbpedia_mask, rec = self.data[index]
-        for en in movie:
-            movie_vec[en] = 1 / len(movie)
-        return context, c_lengths, response, r_length, entity, movie_vec, concept_mask, dbpedia_mask, rec
-        """
-        (
-            context,
-            c_lengths,
-            response,
-            r_length,
-            mask_response,
-            mask_r_length,
-            entity,
-            movie,
-            concept_mask,
-            dbpedia_mask,
-            rec,
-        ) = self.data[index]
-        entity_vec = np.zeros(self.entity_num)
-        entity_vector = np.zeros(200, dtype=np.int)
-        point = 0
-        for en in entity:
-            entity_vec[en] = 1
-            entity_vector[point] = en
-            point += 1
+#     def __getitem__(self, index):
+#         """
+#         movie_vec = np.zeros(self.entity_num, dtype=np.float)
+#         context, c_lengths, response, r_length, entity, movie, concept_mask, dbpedia_mask, rec = self.data[index]
+#         for en in movie:
+#             movie_vec[en] = 1 / len(movie)
+#         return context, c_lengths, response, r_length, entity, movie_vec, concept_mask, dbpedia_mask, rec
+#         """
+#         (
+#             context,
+#             c_lengths,
+#             response,
+#             r_length,
+#             mask_response,
+#             mask_r_length,
+#             entity,
+#             movie,
+#             concept_mask,
+#             dbpedia_mask,
+#             rec,
+#         ) = self.data[index]
+#         entity_vec = np.zeros(self.entity_num)
+#         entity_vector = np.zeros(200, dtype=np.int)
+#         point = 0
+#         for en in entity:
+#             entity_vec[en] = 1
+#             entity_vector[point] = en
+#             point += 1
 
-        concept_vec = np.zeros(self.concept_num)
-        for con in concept_mask:
-            if con != 0:
-                concept_vec[con] = 1
+#         concept_vec = np.zeros(self.concept_num)
+#         for con in concept_mask:
+#             if con != 0:
+#                 concept_vec[con] = 1
 
-        db_vec = np.zeros(self.entity_num)
-        for db in entity:
-            if db != 0:
-                db_vec[db] = 1
-        # for db in dbpedia_mask:
-        #     if db!=0:
-        #         db_vec[db]=1
+#         db_vec = np.zeros(self.entity_num)
+#         for db in entity:
+#             if db != 0:
+#                 db_vec[db] = 1
+#         # for db in dbpedia_mask:
+#         #     if db!=0:
+#         #         db_vec[db]=1
 
-        return (
-            context,
-            c_lengths,
-            response,
-            r_length,
-            mask_response,
-            mask_r_length,
-            entity_vec,
-            entity_vector,
-            movie,
-            np.array(concept_mask),
-            np.array(dbpedia_mask),
-            concept_vec,
-            db_vec,
-            rec,
-        )
+#         return (
+#             context,
+#             c_lengths,
+#             response,
+#             r_length,
+#             mask_response,
+#             mask_r_length,
+#             entity_vec,
+#             entity_vector,
+#             movie,
+#             np.array(concept_mask),
+#             np.array(dbpedia_mask),
+#             concept_vec,
+#             db_vec,
+#             rec,
+#         )
 
-    def __len__(self):
-        return len(self.data)
+#     def __len__(self):
+#         return len(self.data)
 
 
 if __name__ == "__main__":
-    ds = dataset("data/train_data.jsonl")
-    print()
+    args = setup_args().parse_args()
+    print(vars(args))
+    ds = dataset("data/train_data.jsonl", vars(args))
