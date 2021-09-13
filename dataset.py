@@ -175,6 +175,10 @@ class dataset(object):
 
         print(len(self.movie_keywords))
 
+        self.movie_genres = json.load(open('genre.json'))
+
+        print(len(self.movie_genres))
+
         # new_words = []
         # for sample in self.movie_keywords:
         #     key_words = sample['keywords']
@@ -206,6 +210,7 @@ class dataset(object):
             
             num_edges += len(set(re_tokenized_keywords))
             all_lens.append(len(re_tokenized_keywords))
+    
 
         print(mi, ma)   
         print(num_edges)
@@ -214,6 +219,11 @@ class dataset(object):
 
         for sample in self.movie_keywords:
             new_word_item_graph[sample['movie_id']] = sample['keywords']
+        
+        for sample in self.movie_genres:
+            genres = sample['genres']
+            genres = [x.lower() for x in genres]
+            new_word_item_graph[sample['movie_id']] = genres + new_word_item_graph[sample['movie_id']]
 
         with open('word_item_edge_list.json','w') as f:
             json.dump(new_word_item_graph, f)
