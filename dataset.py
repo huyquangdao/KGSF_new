@@ -223,6 +223,7 @@ class dataset(object):
         for sample in self.movie_genres:
             genres = sample['genres']
             genres = [x.lower() for x in genres]
+            genres = [word for word in genres if  word in self.key2index]
             new_word_item_graph[sample['movie_id']] = genres + new_word_item_graph[sample['movie_id']]
 
         with open('word_item_edge_list.json','w') as f:
