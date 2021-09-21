@@ -152,6 +152,9 @@ class dataset(object):
         f = open(filename, encoding="utf-8")
         self.data = []
         self.corpus = []
+
+        self.all_movies = []
+
         for line in tqdm(f):
             lines = json.loads(line.strip())
             seekerid = lines["initiatorWorkerId"]
@@ -164,6 +167,10 @@ class dataset(object):
                 contexts, movies, altitude, initial_altitude, seekerid, recommenderid
             )
             self.data.extend(cases)
+            self.all_movies.extend(movies)
+        
+        # with open('test_movies.json','w') as f:
+        #     json.dump(list(set(self.all_movies)), f)
 
         # if 'train' in filename:
 
@@ -171,13 +178,13 @@ class dataset(object):
         self.word2index = json.load(open("word2index_redial.json", encoding="utf-8"))
         self.key2index = json.load(open("key2index_3rd.json", encoding="utf-8"))
 
-        self.movie_keywords = json.load(open('attribute.json'))
+        self.movie_keywords = json.load(open('new_attribute.json'))
 
         print(len(self.movie_keywords))
 
-        self.movie_genres = json.load(open('genre.json'))
+        # self.movie_genres = json.load(open('genre.json'))
 
-        print(len(self.movie_genres))
+        # print(len(self.movie_genres))
 
         # new_words = []
         # for sample in self.movie_keywords:
@@ -197,7 +204,7 @@ class dataset(object):
         num_edges = 0
         for sample in self.movie_keywords:
             key_words = sample['keywords']
-            re_tokenized_keywords = [word_tokenize(x) for x in key_words][:40]
+            re_tokenized_keywords = [word_tokenize(x) for x in key_words]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
 
             sample['keywords'] = list(set(re_tokenized_keywords))
@@ -220,11 +227,11 @@ class dataset(object):
         for sample in self.movie_keywords:
             new_word_item_graph[sample['movie_id']] = sample['keywords']
         
-        for sample in self.movie_genres:
-            genres = sample['genres']
-            genres = [x.lower() for x in genres]
-            genres = [word for word in genres if  word in self.key2index]
-            new_word_item_graph[sample['movie_id']] = genres + new_word_item_graph[sample['movie_id']]
+        # for sample in self.movie_genres:
+        #     genres = sample['genres']
+        #     genres = [x.lower() for x in genres]
+        #     genres = [word for word in genres if  word in self.key2index]
+        #     new_word_item_graph[sample['movie_id']] = genres + new_word_item_graph[sample['movie_id']]
 
         with open('word_item_edge_list.json','w') as f:
             json.dump(new_word_item_graph, f)
