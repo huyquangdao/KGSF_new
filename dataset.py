@@ -169,8 +169,8 @@ class dataset(object):
             self.data.extend(cases)
             self.all_movies.extend(movies)
         
-        # with open('test_movies.json','w') as f:
-        #     json.dump(list(set(self.all_movies)), f)
+        with open('test_movies.json','w') as f:
+            json.dump(list(set(self.all_movies)), f)
 
         # if 'train' in filename:
 
@@ -676,4 +676,4 @@ class dataset(object):
 if __name__ == "__main__":
     args = setup_args().parse_args()
     print(vars(args))
-    ds = dataset("data/train_data.jsonl", vars(args))
+    ds = dataset("data/test_data.jsonl", vars(args))
