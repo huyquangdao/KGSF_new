@@ -208,7 +208,7 @@ class dataset(object):
         all_lens = []
         num_edges = 0
         for sample in self.movie_keywords:
-            key_words = sample['keywords'][:30]
+            key_words = sample['keywords'][:50]
             
             re_tokenized_keywords = [word_tokenize(x) for x in key_words]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
