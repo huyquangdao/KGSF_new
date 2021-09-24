@@ -204,6 +204,7 @@ class dataset(object):
         num_edges = 0
         for sample in self.movie_keywords:
             key_words = sample['keywords']
+            
             re_tokenized_keywords = [word_tokenize(x) for x in key_words]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
 
@@ -225,6 +226,8 @@ class dataset(object):
         new_word_item_graph = defaultdict(list)
 
         for sample in self.movie_keywords:
+            if sample['keywords'] == []:
+                continue
             new_word_item_graph[sample['movie_id']] = sample['keywords']
         
         # for sample in self.movie_genres:
