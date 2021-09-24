@@ -176,7 +176,7 @@ class dataset(object):
             self.data.extend(cases)
             self.all_movies.extend(movies)
         
-        with open('test_movies.json','w') as f:
+        with open('train_movies.json','w') as f:
             json.dump(list(set(self.all_movies)), f)
 
         # if 'train' in filename:
@@ -190,9 +190,7 @@ class dataset(object):
         print(len(self.movie_keywords))
 
         # self.movie_genres = json.load(open('genre.json'))
-
         # print(len(self.movie_genres))
-
         # new_words = []
         # for sample in self.movie_keywords:
         #     key_words = sample['keywords']
@@ -210,7 +208,7 @@ class dataset(object):
         all_lens = []
         num_edges = 0
         for sample in self.movie_keywords:
-            key_words = sample['keywords'][:30]
+            key_words = sample['keywords']
             
             re_tokenized_keywords = [word_tokenize(x) for x in key_words]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
