@@ -131,6 +131,13 @@ def get_2_hops_neighbors_via_kg(kg, entity_id, relation_counts, max_neighbors=5)
     random.shuffle(one_hops_neighbors)
     return one_hops_neighbors[:max_neighbors], two_hops_neighbors[:max_neighbors]
 
+def compute_number_of_edges(word_item_graph):
+    num_edges = 0
+    for k, v in word_item_graph.items():
+        num_edges += len(v)
+    
+    return num_edges
+
 
 class dataset(object):
     def __init__(self, filename, opt):
@@ -203,7 +210,7 @@ class dataset(object):
         all_lens = []
         num_edges = 0
         for sample in self.movie_keywords:
-            key_words = sample['keywords']
+            key_words = sample['keywords'][:30]
             
             re_tokenized_keywords = [word_tokenize(x) for x in key_words]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
@@ -229,6 +236,9 @@ class dataset(object):
             if sample['keywords'] == []:
                 continue
             new_word_item_graph[sample['movie_id']] = sample['keywords']
+        
+        print('number of nodes: ', len(new_word_item_graph))
+        print('number of edges: ', compute_number_of_edges(new_word_item_graph))
         
         # for sample in self.movie_genres:
         #     genres = sample['genres']
