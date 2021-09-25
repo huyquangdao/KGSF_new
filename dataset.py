@@ -7,7 +7,7 @@ import argparse
 import re
 import seaborn as sns
 import matplotlib.pyplot as plt
-# from torch.utils.data.dataset import Dataset
+from torch.utils.data.dataset import Dataset
 import numpy as np
 from copy import deepcopy
 from collections import defaultdict
@@ -180,14 +180,14 @@ class dataset(object):
             json.dump(list(set(self.all_movies)), f)
 
         # if 'train' in filename:
-
         # self.prepare_word2vec()
         self.word2index = json.load(open("word2index_redial.json", encoding="utf-8"))
         self.key2index = json.load(open("key2index_3rd.json", encoding="utf-8"))
 
         self.movie_keywords = json.load(open('new_attribute.json'))
-
         print(len(self.movie_keywords))
+
+        self.non_item_entities = []
 
         # self.movie_genres = json.load(open('genre.json'))
         # print(len(self.movie_genres))
@@ -208,7 +208,7 @@ class dataset(object):
         all_lens = []
         num_edges = 0
         for sample in self.movie_keywords:
-            key_words = sample['keywords'][:20]
+            key_words = sample['keywords'][:50]
             
             re_tokenized_keywords = [word_tokenize(x) for x in key_words]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
@@ -265,6 +265,9 @@ class dataset(object):
                 f"use neighborhood incoporation ..... num neighbors: {self.max_neighbors}"
             )
 
+        self.mentioned_movie_dbpedia = []
+
+
         # self.co_occurance_ext(self.data)
         # exit()
 
@@ -305,6 +308,8 @@ class dataset(object):
                 try:
                     entity = self.id2entity[int(word[1:])]
                     id = self.entity2entityId[entity]
+                    if word[1:] in self.all_movies:
+                        self.mentioned_movie_dbpedia.append(id)
                 except:
                     id = self.entity_max
                 dbpedia_mask.append(id)
@@ -406,16 +411,18 @@ class dataset(object):
             assert len(dbpedia_mask) == self.max_c_length
 
             # neighborhood intercoporation
-            neighbors = []
-            for id in line["entity"]:
-                one_hops_neighbors, two_hops_neighbors = get_2_hops_neighbors_via_kg(
-                    self.subkg,
-                    id,
-                    self.relation_counts,
-                    max_neighbors=self.max_neighbors,
-                )
-                neighbors.extend(one_hops_neighbors)
-            final_entity = line["entity"] + neighbors
+            # neighbors = []
+            # for id in line["entity"]:
+            #     one_hops_neighbors, two_hops_neighbors = get_2_hops_neighbors_via_kg(
+            #         self.subkg,
+            #         id,
+            #         self.relation_counts,
+            #         max_neighbors=self.max_neighbors,
+            #     )
+            #     neighbors.extend(one_hops_neighbors)
+            # final_entity = line["entity"] + neighbors
+
+            self.non_item_entities.extend(line['entity'])
 
             data_set.append(
                 [
@@ -425,7 +432,7 @@ class dataset(object):
                     r_length,
                     np.array(mask_response),
                     mask_r_length,
-                    final_entity,
+                    line['entity'],
                     line["movie"],
                     concept_mask,
                     dbpedia_mask,
@@ -615,76 +622,126 @@ class dataset(object):
         return cases
 
 
-# class CRSdataset(Dataset):
-#     def __init__(self, dataset, entity_num, concept_num):
-#         self.data = dataset
-#         self.entity_num = entity_num
-#         self.concept_num = concept_num + 1
+class CRSdataset(Dataset):
+    def __init__(self, dataset, entity_num, concept_num):
+        self.data = dataset
+        self.entity_num = entity_num
+        self.concept_num = concept_num + 1
 
-#     def __getitem__(self, index):
-#         """
-#         movie_vec = np.zeros(self.entity_num, dtype=np.float)
-#         context, c_lengths, response, r_length, entity, movie, concept_mask, dbpedia_mask, rec = self.data[index]
-#         for en in movie:
-#             movie_vec[en] = 1 / len(movie)
-#         return context, c_lengths, response, r_length, entity, movie_vec, concept_mask, dbpedia_mask, rec
-#         """
-#         (
-#             context,
-#             c_lengths,
-#             response,
-#             r_length,
-#             mask_response,
-#             mask_r_length,
-#             entity,
-#             movie,
-#             concept_mask,
-#             dbpedia_mask,
-#             rec,
-#         ) = self.data[index]
-#         entity_vec = np.zeros(self.entity_num)
-#         entity_vector = np.zeros(200, dtype=np.int)
-#         point = 0
-#         for en in entity:
-#             entity_vec[en] = 1
-#             entity_vector[point] = en
-#             point += 1
+    def __getitem__(self, index):
+        """
+        movie_vec = np.zeros(self.entity_num, dtype=np.float)
+        context, c_lengths, response, r_length, entity, movie, concept_mask, dbpedia_mask, rec = self.data[index]
+        for en in movie:
+            movie_vec[en] = 1 / len(movie)
+        return context, c_lengths, response, r_length, entity, movie_vec, concept_mask, dbpedia_mask, rec
+        """
+        (
+            context,
+            c_lengths,
+            response,
+            r_length,
+            mask_response,
+            mask_r_length,
+            entity,
+            movie,
+            concept_mask,
+            dbpedia_mask,
+            rec,
+        ) = self.data[index]
+        entity_vec = np.zeros(self.entity_num)
+        entity_vector = np.zeros(200, dtype=np.int)
+        point = 0
+        for en in entity:
+            entity_vec[en] = 1
+            entity_vector[point] = en
+            point += 1
 
-#         concept_vec = np.zeros(self.concept_num)
-#         for con in concept_mask:
-#             if con != 0:
-#                 concept_vec[con] = 1
+        concept_vec = np.zeros(self.concept_num)
+        for con in concept_mask:
+            if con != 0:
+                concept_vec[con] = 1
 
-#         db_vec = np.zeros(self.entity_num)
-#         for db in entity:
-#             if db != 0:
-#                 db_vec[db] = 1
-#         # for db in dbpedia_mask:
-#         #     if db!=0:
-#         #         db_vec[db]=1
+        db_vec = np.zeros(self.entity_num)
+        for db in entity:
+            if db != 0:
+                db_vec[db] = 1
+        # for db in dbpedia_mask:
+        #     if db!=0:
+        #         db_vec[db]=1
 
-#         return (
-#             context,
-#             c_lengths,
-#             response,
-#             r_length,
-#             mask_response,
-#             mask_r_length,
-#             entity_vec,
-#             entity_vector,
-#             movie,
-#             np.array(concept_mask),
-#             np.array(dbpedia_mask),
-#             concept_vec,
-#             db_vec,
-#             rec,
-#         )
+        return (
+            context,
+            c_lengths,
+            response,
+            r_length,
+            mask_response,
+            mask_r_length,
+            entity_vec,
+            entity_vector,
+            movie,
+            np.array(concept_mask),
+            np.array(dbpedia_mask),
+            concept_vec,
+            db_vec,
+            rec,
+        )
 
-#     def __len__(self):
-#         return len(self.data)
+    def __len__(self):
+        return len(self.data)
 
 
 if __name__ == "__main__":
     args = setup_args().parse_args()
     print(vars(args))
-    ds = dataset("data/test_data.jsonl", vars(args))
+    ds = dataset("data/train_data.jsonl", vars(args))
+    train_set = CRSdataset(
+        ds.data_process(),
+        vars(args)["n_entity"],
+        vars(args)["n_concept"],
+    )
+
+    # train_non_item_entities = set(ds.non_item_entities)
+
+    # print(len(set(ds.non_item_entities)))
+    # print(len(set(ds.mentioned_movie_dbpedia)))
+    # print(len(train_non_item_entities))
+
+    # print('----------------------------------------------------')
+
+    # ds = dataset("data/valid_data.jsonl", vars(args))
+    # train_set = CRSdataset(
+    #     ds.data_process(),
+    #     vars(args)["n_entity"],
+    #     vars(args)["n_concept"],
+    # )
+
+    # valid_non_item_entities = set(ds.non_item_entities)
+
+    # print(len(set(ds.non_item_entities)))
+    # print(len(set(ds.mentioned_movie_dbpedia)))
+    # print(len(valid_non_item_entities))   
+
+    # print('----------------------------------------------------') 
+    
+    # ds = dataset("data/test_data.jsonl", vars(args))
+    # train_set = CRSdataset(
+    #     ds.data_process(),
+    #     vars(args)["n_entity"],
+    #     vars(args)["n_concept"],
+    # )
+
+    # test_non_item_entities = set(ds.non_item_entities)
+
+    # print(len(set(ds.non_item_entities)))
+    # print(len(set(ds.mentioned_movie_dbpedia)))
+    # print(len(test_non_item_entities))
+
+
+    # all_non_items = list(set(list(train_non_item_entities) + list(valid_non_item_entities) + list(test_non_item_entities)))
+    # print(len(all_non_items))
+
+    # with open('all_non_items.json','w') as f:
+    #     json.dump(all_non_items, f)
+
+
