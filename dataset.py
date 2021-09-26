@@ -162,9 +162,6 @@ class dataset(object):
 
         self.all_movies = []
 
-        with open('/home/huy/Home/KGSF_new/data/subkg.pkl','rb') as f:
-            kg = pkl.load(f)
-        
 
         for line in tqdm(f):
             lines = json.loads(line.strip())
@@ -212,7 +209,7 @@ class dataset(object):
         all_lens = []
         num_edges = 0
         for sample in self.movie_keywords:
-            key_words = sample['keywords'][:40]
+            key_words = sample['keywords'][:20]
             
             re_tokenized_keywords = [word_tokenize(x) for x in key_words]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
