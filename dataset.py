@@ -162,6 +162,10 @@ class dataset(object):
 
         self.all_movies = []
 
+        with open('/home/huy/Home/KGSF_new/data/subkg.pkl','rb') as f:
+            kg = pkl.load(f)
+        
+
         for line in tqdm(f):
             lines = json.loads(line.strip())
             seekerid = lines["initiatorWorkerId"]
