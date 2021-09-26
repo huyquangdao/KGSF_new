@@ -162,6 +162,15 @@ class dataset(object):
 
         self.all_movies = []
 
+        with open('/home/huy/Home/KGSF_new/data/movie_ids.pkl','rb') as f:
+            movie_ids = pkl.load(f)
+        
+        print(len(movie_ids))
+
+        print(movie_ids[:10])
+
+        assert 1==0
+
 
         for line in tqdm(f):
             lines = json.loads(line.strip())
