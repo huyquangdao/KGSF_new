@@ -162,15 +162,6 @@ class dataset(object):
 
         self.all_movies = []
 
-        with open('/home/huy/Home/KGSF_new/data/movie_ids.pkl','rb') as f:
-            movie_ids = pkl.load(f)
-        
-        print(len(movie_ids))
-
-        print(movie_ids[:10])
-
-        assert 1==0
-
 
         for line in tqdm(f):
             lines = json.loads(line.strip())
@@ -194,7 +185,7 @@ class dataset(object):
         self.word2index = json.load(open("word2index_redial.json", encoding="utf-8"))
         self.key2index = json.load(open("key2index_3rd.json", encoding="utf-8"))
 
-        self.movie_keywords = json.load(open('new_attribute.json'))
+        self.movie_keywords = json.load(open('new_attribute_1.json'))
         print(len(self.movie_keywords))
 
         self.non_item_entities = []
@@ -218,7 +209,7 @@ class dataset(object):
         all_lens = []
         num_edges = 0
         for sample in self.movie_keywords:
-            key_words = sample['keywords'][:20]
+            key_words = sample['keywords'][:40]
             
             re_tokenized_keywords = [word_tokenize(x) for x in key_words]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
