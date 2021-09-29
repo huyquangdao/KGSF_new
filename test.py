@@ -94,6 +94,6 @@ print('percentage of mentioned movie in kg: ', count / len(entity2entityId) * 10
 print('percentage of mentioned movied linked to kg: ',count/ 6924 * 100)
 print('percentage of mentioned non-item entities in kg: ', count_all_mentioned_non_items/ len(entity2entityId) * 100)
 
-edge_list, n_relation = _edge_list(kg, 64368, hop=2)
-extract_one_hop_neighbors(all_transformerd_movies_ids, edge_list, len(entity2entityId))
-extract_one_hop_neighbors(all_non_item_entities, edge_list, len(entity2entityId))
+# edge_list, n_relation = _edge_list(kg, 64368, hop=2)
+# extract_one_hop_neighbors(all_transformerd_movies_ids, edge_list, len(entity2entityId))
+# extract_one_hop_neighbors(all_non_item_entities, edge_list, len(entity2entityId))
