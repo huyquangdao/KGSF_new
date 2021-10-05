@@ -185,7 +185,7 @@ class dataset(object):
         self.word2index = json.load(open("word2index_redial.json", encoding="utf-8"))
         self.key2index = json.load(open("key2index_3rd.json", encoding="utf-8"))
 
-        self.movie_keywords = json.load(open('new_attribute_1.json'))
+        self.movie_keywords = json.load(open('new_attribute_genres_company.json'))
         print(len(self.movie_keywords))
 
         self.non_item_entities = []
