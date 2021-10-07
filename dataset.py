@@ -209,7 +209,7 @@ class dataset(object):
         all_lens = []
         num_edges = 0
         for sample in self.movie_keywords:
-            key_words = sample['keywords'][:30]
+            key_words = sample['keywords'][:40]
             
             re_tokenized_keywords = [word_tokenize(x) for x in key_words]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
@@ -251,8 +251,8 @@ class dataset(object):
         with open('word_item_edge_list.json','r') as f:
             word_item_edge_list = json.load(f)
         
-        print(new_word_item_graph[str(50221)])
-        print(new_word_item_graph[str(22437)])
+        # print(new_word_item_graph[str(50221)])
+        # print(new_word_item_graph[str(22437)])
 
         
         self.stopwords = set(
