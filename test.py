@@ -83,17 +83,22 @@ for movie in all_movies:
     except:
         pass
 
-print('number of handled movies: ',count)
+# print('number of handled movies: ',count)
 
-all_mentioned_entities = json.load(open('/home/huy/Home/KGSF_new/all_non_items.json'))
-count_all_mentioned_non_items =  len(set(all_mentioned_entities)) - len(set(all_transformerd_movies_ids))
+# all_mentioned_entities = json.load(open('/home/huy/Home/KGSF_new/all_non_items.json'))
+# count_all_mentioned_non_items =  len(set(all_mentioned_entities)) - len(set(all_transformerd_movies_ids))
 
-all_non_item_entities = list(set(all_mentioned_entities) - set(all_transformerd_movies_ids))
+# all_non_item_entities = list(set(all_mentioned_entities) - set(all_transformerd_movies_ids))
 
-print('percentage of mentioned movie in kg: ', count / len(entity2entityId) * 100)
-print('percentage of mentioned movied linked to kg: ',count/ 6924 * 100)
-print('percentage of mentioned non-item entities in kg: ', count_all_mentioned_non_items/ len(entity2entityId) * 100)
+# print('percentage of mentioned movie in kg: ', count / len(entity2entityId) * 100)
+# print('percentage of mentioned movied linked to kg: ',count/ 6924 * 100)
+# print('percentage of mentioned non-item entities in kg: ', count_all_mentioned_non_items/ len(entity2entityId) * 100)
 
 # edge_list, n_relation = _edge_list(kg, 64368, hop=2)
 # extract_one_hop_neighbors(all_transformerd_movies_ids, edge_list, len(entity2entityId))
 # extract_one_hop_neighbors(all_non_item_entities, edge_list, len(entity2entityId))
+
+with open('/home/huy/Home/KGSF_new/all_src_des_pairs.json','r') as f:
+    temp = json.load(f)
+
+print(len(temp))

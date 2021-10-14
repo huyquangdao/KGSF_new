@@ -141,12 +141,12 @@ def compute_number_of_edges(word_item_graph):
 
 class dataset(object):
     def __init__(self, filename, opt):
-        self.entity2entityId = pkl.load(open("data/entity2entityId.pkl", "rb"))
+        self.entity2entityId = pkl.load(open("generated_data/final_entity2entityId.pkl", "rb"))
         self.entity_max = len(self.entity2entityId)
 
-        self.id2entity = pkl.load(open("data/id2entity.pkl", "rb"))
-        self.subkg = pkl.load(open("data/subkg.pkl", "rb"))  # need not back process
-        self.text_dict = pkl.load(open("data/text_dict.pkl", "rb"))
+        self.id2entity = pkl.load(open("generated_data/final_id2entity.pkl", "rb"))
+        self.subkg = pkl.load(open("generated_data/final_2_hop_subkg.pkl", "rb"))  # need not back process
+        self.text_dict = pkl.load(open("generated_data/final_text_dict.pkl", "rb"))
 
         self.batch_size = opt["batch_size"]
         self.max_c_length = opt["max_c_length"]
@@ -202,6 +202,8 @@ class dataset(object):
         #         for y in x:
         #             if y in self.key2index:
         #                 new_words.append(y)
+
+        self.all_src_des_pairs = []
         
         mi = 1000
         ma = -1
@@ -307,7 +309,7 @@ class dataset(object):
             #    concept_mask.append(0)
             if "@" in word:
                 try:
-                    entity = self.id2entity[int(word[1:])]
+                    entity = self.id2entity[str(word[1:])]
                     id = self.entity2entityId[entity]
                     if word[1:] in self.all_movies:
                         self.mentioned_movie_dbpedia.append(id)
@@ -423,6 +425,14 @@ class dataset(object):
             #     neighbors.extend(one_hops_neighbors)
             # final_entity = line["entity"] + neighbors
 
+            if len(line['entity']) > 0:
+                src_des_pairs = []
+                for en in line['entity']:
+                    src_des_pairs.append((int(en), int(line['movie'])))
+                self.all_src_des_pairs.append(tuple(src_des_pairs))
+            else:
+                self.all_src_des_pairs.append(tuple([]))
+
             self.non_item_entities.extend(line['entity'])
 
             data_set.append(
@@ -525,8 +535,8 @@ class dataset(object):
                 movie_rec.append(word[1:])
         movie_rec_trans = []
         for movie in movie_rec:
-            entity = self.id2entity[int(movie)]
             try:
+                entity = self.id2entity[str(movie)]
                 movie_rec_trans.append(self.entity2entityId[entity])
             except:
                 pass
@@ -701,6 +711,9 @@ if __name__ == "__main__":
         vars(args)["n_entity"],
         vars(args)["n_concept"],
     )
+
+    with open('all_src_des_pairs.json','w') as f:
+        json.dump(list(ds.all_src_des_pairs), f)
 
     # train_non_item_entities = set(ds.non_item_entities)
 
