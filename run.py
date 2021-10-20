@@ -408,13 +408,16 @@ class TrainLoop_fusion_rec:
     def metrics_cal_rec(self, rec_loss, scores, labels):
         batch_size = len(labels.view(-1).tolist())
         self.metrics_rec["loss"] += rec_loss
+        
         outputs = scores.cpu()
         outputs = outputs[:, torch.LongTensor(self.movie_ids)]
+
         _, pred_idx = torch.topk(outputs, k=100, dim=1)
         for b in range(batch_size):
             if labels[b].item() == 0:
                 continue
             target_idx = self.movie_ids.index(labels[b].item())
+            #456 target , [456, 678, 243435, 34534]
             self.metrics_rec["recall@1"] += int(target_idx in pred_idx[b][:1].tolist())
             self.metrics_rec["recall@10"] += int(
                 target_idx in pred_idx[b][:10].tolist()
