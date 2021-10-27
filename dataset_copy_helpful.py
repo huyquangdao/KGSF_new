@@ -6,6 +6,11 @@ from nltk import word_tokenize
 import re
 from torch.utils.data.dataset import Dataset
 import numpy as np
+
+import nltk
+nltk.download('punkt')
+
+
 from copy import deepcopy
 from collections import defaultdict
 from random import shuffle
