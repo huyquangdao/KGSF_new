@@ -3,10 +3,7 @@ from tqdm import tqdm
 import pickle as pkl
 import json
 from nltk import word_tokenize
-import argparse
 import re
-import seaborn as sns
-import matplotlib.pyplot as plt
 from torch.utils.data.dataset import Dataset
 import numpy as np
 from copy import deepcopy
@@ -14,70 +11,7 @@ from collections import defaultdict
 from random import shuffle
 import random
 
-def setup_args():
-    train = argparse.ArgumentParser()
-    train.add_argument("-random_seed", "--random_seed", type=int, default=234)
-    train.add_argument("-max_c_length", "--max_c_length", type=int, default=256)
-    train.add_argument("-max_r_length", "--max_r_length", type=int, default=30)
-    train.add_argument("-batch_size", "--batch_size", type=int, default=32)
-    train.add_argument("-max_count", "--max_count", type=int, default=5)
-    train.add_argument("-use_cuda", "--use_cuda", type=bool, default=True)
-    train.add_argument("-load_dict", "--load_dict", type=str, default=None)
-    train.add_argument("-learningrate", "--learningrate", type=float, default=1e-3)
-    train.add_argument("-optimizer", "--optimizer", type=str, default="adam")
-    train.add_argument("-momentum", "--momentum", type=float, default=0)
-    train.add_argument("-is_finetune", "--is_finetune", type=bool, default=False)
-    train.add_argument(
-        "-embedding_type", "--embedding_type", type=str, default="random"
-    )
-    train.add_argument("-epoch", "--epoch", type=int, default=2)
-    train.add_argument("-gpu", "--gpu", type=str, default="0,1")
-    train.add_argument("-gradient_clip", "--gradient_clip", type=float, default=0.1)
-    train.add_argument("-embedding_size", "--embedding_size", type=int, default=300)
-
-    train.add_argument("-n_heads", "--n_heads", type=int, default=2)
-    train.add_argument("-n_layers", "--n_layers", type=int, default=2)
-    train.add_argument("-ffn_size", "--ffn_size", type=int, default=300)
-
-    train.add_argument("-dropout", "--dropout", type=float, default=0.1)
-    train.add_argument(
-        "-attention_dropout", "--attention_dropout", type=float, default=0.0
-    )
-    train.add_argument("-relu_dropout", "--relu_dropout", type=float, default=0.1)
-
-    train.add_argument(
-        "-learn_positional_embeddings",
-        "--learn_positional_embeddings",
-        type=bool,
-        default=False,
-    )
-    train.add_argument(
-        "-embeddings_scale", "--embeddings_scale", type=bool, default=True
-    )
-
-    train.add_argument("-n_entity", "--n_entity", type=int, default=64368)
-    train.add_argument("-n_relation", "--n_relation", type=int, default=214)
-    train.add_argument("-n_concept", "--n_concept", type=int, default=29308)
-    train.add_argument("-n_con_relation", "--n_con_relation", type=int, default=48)
-    train.add_argument("-dim", "--dim", type=int, default=128)
-    train.add_argument("-n_hop", "--n_hop", type=int, default=2)
-    train.add_argument("-kge_weight", "--kge_weight", type=float, default=1)
-    train.add_argument("-l2_weight", "--l2_weight", type=float, default=2.5e-6)
-    train.add_argument("-n_memory", "--n_memory", type=float, default=32)
-    train.add_argument(
-        "-item_update_mode", "--item_update_mode", type=str, default="0,1"
-    )
-    train.add_argument("-using_all_hops", "--using_all_hops", type=bool, default=True)
-    train.add_argument("-num_bases", "--num_bases", type=int, default=8)
-    train.add_argument("-max_neighbors", "--max_neighbors", type=int, default=10)
-
-    train.add_argument("-train_mim", "--train_mim", type=int, default=1)
-
-    train.add_argument(
-        "-info_loss_ratio", "--info_loss_ratio", type=float, default=0.025
-    )
-
-    return train
+from tqdm import tqdm
 
 
 def _edge_list_1(kg, n_entity, hop):
@@ -87,12 +21,12 @@ def _edge_list_1(kg, n_entity, hop):
             # add self loop
             # edge_list.append((entity, entity))
             # self_loop id = 185
-            edge_list.append((entity, entity, 185))
+            edge_list.append((entity, entity, 13))
             if entity not in kg:
                 continue
             for tail_and_relation in kg[entity]:
                 if (
-                    entity != tail_and_relation[1] and tail_and_relation[0] != 185
+                    entity != tail_and_relation[1] and tail_and_relation[0] != 13
                 ):  # and tail_and_relation[0] in EDGE_TYPES:
                     edge_list.append(
                         (entity, tail_and_relation[1], tail_and_relation[0])
@@ -106,11 +40,11 @@ def _edge_list_1(kg, n_entity, hop):
     for h, t, r in edge_list:
         relation_cnt[r] += 1
     for h, t, r in edge_list:
-        if relation_cnt[r] > 1000 and r not in relation_idx:
+        if relation_cnt[r] > 10 and r not in relation_idx:
             relation_idx[r] = len(relation_idx)
 
     return [
-        (h, t, relation_idx[r]) for h, t, r in edge_list if relation_cnt[r] > 1000
+        (h, t, relation_idx[r]) for h, t, r in edge_list if relation_cnt[r] > 10
     ], relation_cnt
 
 
@@ -121,31 +55,50 @@ def get_neighborhood(edge_list, entity_id, max_neighbors=30):
 
 def get_2_hops_neighbors_via_kg(kg, entity_id, relation_counts, max_neighbors=5):
     #     one_hops_neighbors = [t[1] for t in kg[entity_id] if t[1] != entity_id and relation_counts[int(t[0])] > 1000]
+    
+#     print(list(kg.keys())[:10])
+    
     one_hops_neighbors = [t[1] for t in kg[entity_id] if t[1] != entity_id]
+    random.shuffle(one_hops_neighbors)
+    one_hops_neighbors = one_hops_neighbors[:max_neighbors]
     two_hops_neighbors = [
         t[1]
         for n_id in one_hops_neighbors
         for t in kg[n_id]
-        if t[1] != entity_id and relation_counts[t[0]] > 1000
+        if t[1] != entity_id and t[1] != n_id
     ]
-    random.shuffle(one_hops_neighbors)
-    return one_hops_neighbors[:max_neighbors], two_hops_neighbors[:max_neighbors]
+#     random.shuffle(two_hops_neighbors)
+    return one_hops_neighbors, two_hops_neighbors[:max_neighbors]
 
-def compute_number_of_edges(word_item_graph):
-    num_edges = 0
-    for k, v in word_item_graph.items():
-        num_edges += len(v)
+
+# def get_2_hops_neighbors(edge_list, entity_id, max_neighbors = 5):
+#     one_hop_neighbors = [triplet[1] for triplet in edge_list if triplet[0] == entity_id]
+#     two_hop_neighbors = [triplet[1] for n_id in one_hop_neighbors for triplet in edge_list if triplet[0] == entity_id]
+
+def create_2_hops_kg(kg):
+    new_kg = defaultdict(list)
+    for k,v in kg.items():
+        new_kg[k] = v
+        for r, e in v:
+            new_kg[e].append((r, k))
     
-    return num_edges
-
+    for k,v in new_kg.items():
+        new_kg[k] = list(set(v))
+    
+    return new_kg
+        
 
 class dataset(object):
     def __init__(self, filename, opt):
+        
         self.entity2entityId = pkl.load(open("generated_data/final_entity2entityId.pkl", "rb"))
         self.entity_max = len(self.entity2entityId)
 
         self.id2entity = pkl.load(open("generated_data/final_id2entity.pkl", "rb"))
         self.subkg = pkl.load(open("generated_data/final_2_hop_subkg.pkl", "rb"))  # need not back process
+        
+        self.new_subkg = create_2_hops_kg(self.subkg)
+        
         self.text_dict = pkl.load(open("generated_data/final_text_dict.pkl", "rb"))
 
         self.batch_size = opt["batch_size"]
@@ -154,15 +107,17 @@ class dataset(object):
         self.max_count = opt["max_count"]
         self.entity_num = opt["n_entity"]
         self.max_neighbors = opt["max_neighbors"]
+        
+        with open('generated_data/final_review_2_movie_entities.json','r') as f:
+            self.review2entities = json.load(f)
+            
+#         self.word_item_graph = json.load(open('processed_word_item_edge_list.json'))
         # self.word2index=json.load(open('word2index.json',encoding='utf-8'))
 
         f = open(filename, encoding="utf-8")
         self.data = []
-        self.corpus = []
-
         self.all_movies = []
-
-
+        self.corpus = []
         for line in tqdm(f):
             lines = json.loads(line.strip())
             seekerid = lines["initiatorWorkerId"]
@@ -177,106 +132,75 @@ class dataset(object):
             self.data.extend(cases)
             self.all_movies.extend(movies)
         
-        with open('train_movies.json','w') as f:
-            json.dump(list(set(self.all_movies)), f)
+        self.all_movies = list(set(self.all_movies))
+        self.all_trans_movies = []
+        
+        for movie in self.all_movies:
+            try:
+                entity = self.id2entity[str(movie)]
+                id = self.entity2entityId[entity]
+                self.all_trans_movies.append(id)
+            except:
+                pass
 
         # if 'train' in filename:
+
         # self.prepare_word2vec()
         self.word2index = json.load(open("word2index_redial.json", encoding="utf-8"))
         self.key2index = json.load(open("key2index_3rd.json", encoding="utf-8"))
-
-        self.movie_keywords = json.load(open('new_attribute_genres_company.json'))
-        print(len(self.movie_keywords))
-
-        self.non_item_entities = []
-
-        # self.movie_genres = json.load(open('genre.json'))
-        # print(len(self.movie_genres))
-        # new_words = []
-        # for sample in self.movie_keywords:
-        #     key_words = sample['keywords']
-
-        #     re_tokenized_keywords = [word_tokenize(x) for x in key_words]
-
-        #     for x in re_tokenized_keywords:
-        #         for y in x:
-        #             if y in self.key2index:
-        #                 new_words.append(y)
-
-        self.all_src_des_pairs = []
-        
-        mi = 1000
-        ma = -1
-
-        all_lens = []
-        num_edges = 0
-        for sample in self.movie_keywords:
-            key_words = sample['keywords'][:40]
-            
-            re_tokenized_keywords = [word_tokenize(x) for x in key_words]
-            re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
-
-            sample['keywords'] = list(set(re_tokenized_keywords))
-
-            if len(re_tokenized_keywords) >= ma:
-                ma = len(re_tokenized_keywords)
-            
-            if len(re_tokenized_keywords) <= mi:
-                mi = len(re_tokenized_keywords)
-            
-            num_edges += len(set(re_tokenized_keywords))
-            all_lens.append(len(re_tokenized_keywords))
-    
-
-        print(mi, ma)   
-        print(num_edges)
-
-        new_word_item_graph = defaultdict(list)
-
-        for sample in self.movie_keywords:
-            if sample['keywords'] == []:
-                continue
-            new_word_item_graph[sample['movie_id']] = sample['keywords']
-        
-        print('number of nodes: ', len(new_word_item_graph))
-        print('number of edges: ', compute_number_of_edges(new_word_item_graph))
-        
-        # for sample in self.movie_genres:
-        #     genres = sample['genres']
-        #     genres = [x.lower() for x in genres]
-        #     genres = [word for word in genres if  word in self.key2index]
-        #     new_word_item_graph[sample['movie_id']] = genres + new_word_item_graph[sample['movie_id']]
-
-        with open('word_item_edge_list.json','w') as f:
-            json.dump(new_word_item_graph, f)
-        
-        with open('word_item_edge_list.json','r') as f:
-            word_item_edge_list = json.load(f)
-        
-        # print(new_word_item_graph[str(50221)])
-        # print(new_word_item_graph[str(22437)])
-
         
         self.stopwords = set(
             [word.strip() for word in open("stopwords.txt", encoding="utf-8")]
         )
 
-        self.edge_list, self.relation_counts = _edge_list_1(self.subkg, 64368, hop=2)
+        self.edge_list, self.relation_counts = _edge_list_1(self.subkg, 40000, hop=1)
+        
+        
+#         with open('generated_data/final_generated_dfs_path.json','r') as f:
+#             self.dfs_paths = json.load(f)
+        
+        
+#         with open('word_item_edge_list.json','r') as f:
+#             self.word_item_edge_list = json.load(f)
+                                         
+#         self.word_item_kg = json.load(open('processed_word_item_edge_list.json'))
+                                   
+#         self.key_words_pool = []
+        
+#         for sample, words in self.word_item_kg.items():
+#             self.key_words_pool.extend(words)
+        
+#         self.key_words_pool = set(self.key_words_pool)
+        
+#         print(len(self.key_words_pool))
+                                   
+#         word_item_edge_list = self.generate_word_item_edge_list()
+#         for k,v in word_item_edge_list.items():
+#             word_item_edge_list[k] = list(set(v))
+        
+#         print('number of entities in data: ', len(word_item_edge_list))
+       
+#         with open('word_item_edge_list.json', 'w') as f:
+#             json.dump(word_item_edge_list, f)
+#         assert 1==0
+
 
         if self.max_neighbors > 0:
             print(
                 f"use neighborhood incoporation ..... num neighbors: {self.max_neighbors}"
             )
-
-        self.mentioned_movie_dbpedia = []
-
+        
+#         print('load processed word item edge list ....')
+        
+#         with open('processed_word_item_edge_list.json','r') as f:
+#             self.processed_word_item_edge_list = json.load(f)
 
         # self.co_occurance_ext(self.data)
         # exit()
 
     def prepare_word2vec(self):
+        
         import gensim
-
         model = gensim.models.word2vec.Word2Vec(self.corpus, size=300, min_count=1)
         model.save("word2vec_redial")
         word2index = {word: i + 4 for i, word in enumerate(model.wv.index2word)}
@@ -298,53 +222,40 @@ class dataset(object):
         np.save("word2vec_redial.npy", word2embedding)
 
     def padding_w2v(self, sentence, max_length, transformer=True, pad=0, end=2, unk=3):
-        vector = []
-        concept_mask = []
-        dbpedia_mask = []
+        
+        vector=[]
+        concept_mask=[]
+        dbpedia_mask=[]
         for word in sentence:
-            vector.append(self.word2index.get(word, unk))
-            # if word.lower() not in self.stopwords:
-            concept_mask.append(self.key2index.get(word.lower(), 0))
-            # else:
+            vector.append(self.word2index.get(word,unk))
+            #if word.lower() not in self.stopwords:
+            concept_mask.append(self.key2index.get(word.lower(),0))
+            #else:
             #    concept_mask.append(0)
-            if "@" in word:
+            if '@' in word:
                 try:
                     entity = self.id2entity[str(word[1:])]
-                    id = self.entity2entityId[entity]
-                    if word[1:] in self.all_movies:
-                        self.mentioned_movie_dbpedia.append(id)
+                    id=self.entity2entityId[entity]
                 except:
-                    id = self.entity_max
+                    id=self.entity_max
                 dbpedia_mask.append(id)
             else:
                 dbpedia_mask.append(self.entity_max)
+                
         vector.append(end)
         concept_mask.append(0)
         dbpedia_mask.append(self.entity_max)
 
-        if len(vector) > max_length:
+        if len(vector)>max_length:
             if transformer:
-                return (
-                    vector[-max_length:],
-                    max_length,
-                    concept_mask[-max_length:],
-                    dbpedia_mask[-max_length:],
-                )
+                return vector[-max_length:],max_length,concept_mask[-max_length:],dbpedia_mask[-max_length:]
             else:
-                return (
-                    vector[:max_length],
-                    max_length,
-                    concept_mask[:max_length],
-                    dbpedia_mask[:max_length],
-                )
+                return vector[:max_length],max_length,concept_mask[:max_length],dbpedia_mask[:max_length]
         else:
-            length = len(vector)
-            return (
-                vector + (max_length - len(vector)) * [pad],
-                length,
-                concept_mask + (max_length - len(vector)) * [0],
-                dbpedia_mask + (max_length - len(vector)) * [self.entity_max],
-            )
+            length=len(vector)
+            return vector+(max_length-len(vector))*[pad],length,\
+                   concept_mask+(max_length-len(vector))*[0],dbpedia_mask+(max_length-len(vector))*[self.entity_max]
+            
 
     def padding_context(self, contexts, pad=0, transformer=True):
         vectors = []
@@ -386,17 +297,77 @@ class dataset(object):
             else:
                 new_response.append(word)
         return new_response
+    
+    def generate_word_item_edge_list(self):
+        
+        word_item_edge_dic = defaultdict(list)
+        context_before = None
+        check = defaultdict(int)
+        old_entities = []
+        word_item = defaultdict(list)
+        
+        for line in self.data:
+            if context_before is None or len(line['contexts']) > len(context_before):
+                if len(line['entity']) > 0:
+                    ## current conversation
+                    if len(line['entity']) > len(old_entities):
+                        #there are new entities
+                        ## take top-2 newest utterences
+#                         print('(entities): ', line['entity'])
+#                         print('(current conversation history): ', line['contexts'])
+                        current_context = line['contexts'][-2:]
+#                         print('(words use to generate graph): ', current_context)
+#                         print('(context before): ', context_before)
+#                         i+=1
+                        words = [w for sent in current_context for w in sent]
+#                         print(words)
+#                         print(set(line['entity']) - set(old_entities))
+#                         print('--------------------------------------------------------------')
+#                         if i >10:
+#                             assert 1 == 0
+                        # assign words as entity neighbors
+                        for en in list(set(line['entity']) - set(old_entities)):
+                            word_item[en] = words
+                        # re-assign old entities
+                        old_entities = line['entity']
+            else:
+                #new conversation
+                #update entity neighbors in here
+                for k, v in word_item.items():
+                    word_item_edge_dic[k].extend(v)
+                old_entities = []
+                word_item = defaultdict(list)
+                
+                if len(line['entity']) > 0:
+                    current_context = line['contexts']
+                    words = [w for sent in current_context for w in sent]
+                    # assign words as entity neighbors
+                    for en in list(set(line['entity']) - set(old_entities)):
+                        word_item[en] = words
+                    # re-assign old entities
+                    old_entities = line['entity']
+            context_before = line['contexts']
+        return word_item_edge_dic
+    
 
     def data_process(self, is_finetune=False):
         data_set = []
         context_before = []
-        for line in self.data:
+        
+        i = 0
+        
+        entities_before = None
+        context_b = None
+        
+        for idx, line in enumerate(self.data):
             # if len(line['contexts'])>2:
             #    continue
+            i+= 1
             if is_finetune and line["contexts"] == context_before:
                 continue
             else:
                 context_before = line["contexts"]
+            
             context, c_lengths, concept_mask, dbpedia_mask, _ = self.padding_context(
                 line["contexts"]
             )
@@ -409,31 +380,48 @@ class dataset(object):
                 )
             else:
                 mask_response, mask_r_length = response, r_length
+                
             assert len(context) == self.max_c_length
             assert len(concept_mask) == self.max_c_length
             assert len(dbpedia_mask) == self.max_c_length
+            
+            #retrive keywords associated with movies
+            all_key_words = []
+            movies = []
+            
+#             if line['contexts'] == context_b and line['entity'] == entities_before:
+#                 mask = np.random.binomial(size = len(concept_mask), n=1, p = 0.75)
+#                 concept_mask = concept_mask * mask
+#             else:
+#                 entities_before = line['entity']
+#                 context_b = line['contexts']
+                
+            
+#             if len(line['entity']) > 0:
+#                 print(line['entity'])
 
-            # neighborhood intercoporation
-            # neighbors = []
-            # for id in line["entity"]:
-            #     one_hops_neighbors, two_hops_neighbors = get_2_hops_neighbors_via_kg(
-            #         self.subkg,
-            #         id,
-            #         self.relation_counts,
-            #         max_neighbors=self.max_neighbors,
-            #     )
-            #     neighbors.extend(one_hops_neighbors)
-            # final_entity = line["entity"] + neighbors
+#             dfs_paths = self.dfs_paths[i]
+#             print(dfs_paths)
+            
+            #review entities
+#             new_entities = []
+#             for entity in line['entity']:
+#                 if str(entity) in self.review2entities:
+#                     review_entities = self.review2entities[str(entity)]
+#                     review_entities = [int(x) for x in review_entities]
+#                     new_entities.extend(review_entities)
 
+            #retrive multi-hop neighobors
             if len(line['entity']) > 0:
-                src_des_pairs = []
-                for en in line['entity']:
-                    src_des_pairs.append((int(en), int(line['movie'])))
-                self.all_src_des_pairs.append(tuple(src_des_pairs))
+                all_one_hop_neighbors = []
+                all_two_hop_neighbors = []
+#                 for entity in line['entity']:
+#                     one_hop_neighbors, two_hop_neighbors = get_2_hops_neighbors_via_kg(self.new_subkg, entity, self.relation_counts, 10 )
+#                     all_one_hop_neighbors.extend(one_hop_neighbors)
+#                     all_two_hop_neighbors.extend(two_hop_neighbors)
             else:
-                self.all_src_des_pairs.append(tuple([]))
-
-            self.non_item_entities.extend(line['entity'])
+                all_one_hop_neighbors = []
+                all_two_hop_neighbors = []
 
             data_set.append(
                 [
@@ -448,6 +436,10 @@ class dataset(object):
                     concept_mask,
                     dbpedia_mask,
                     line["rec"],
+                    all_key_words,
+                    movies,
+                    all_one_hop_neighbors,
+                    all_two_hop_neighbors,
                 ]
             )
         return data_set
@@ -591,7 +583,6 @@ class dataset(object):
             self.corpus.append(context_dict["text"])
             if context_dict["user"] == re_id and len(contexts) > 0:
                 response = context_dict["text"]
-
                 # entity_vec=np.zeros(self.entity_num)
                 # for en in list(entities):
                 #    entity_vec[en]=1
@@ -638,6 +629,9 @@ class CRSdataset(Dataset):
         self.data = dataset
         self.entity_num = entity_num
         self.concept_num = concept_num + 1
+        self.entity_max = 40000
+        
+        self.max_neighbors = 10
 
     def __getitem__(self, index):
         """
@@ -659,10 +653,15 @@ class CRSdataset(Dataset):
             concept_mask,
             dbpedia_mask,
             rec,
+            key_words,
+            movies,
+            one_hop_neighbors,
+            two_hop_neighbors,
         ) = self.data[index]
         entity_vec = np.zeros(self.entity_num)
         entity_vector = np.zeros(200, dtype=np.int)
         point = 0
+        
         for en in entity:
             entity_vec[en] = 1
             entity_vector[point] = en
@@ -675,12 +674,19 @@ class CRSdataset(Dataset):
 
         db_vec = np.zeros(self.entity_num)
         for db in entity:
+            if db!=0:
+                db_vec[db]=1
+                
+        one_hop_vec = np.zeros(self.entity_num)
+        for db in one_hop_neighbors:
             if db != 0:
-                db_vec[db] = 1
-        # for db in dbpedia_mask:
-        #     if db!=0:
-        #         db_vec[db]=1
-
+                one_hop_vec[db] = 1       
+        
+        two_hop_vec = np.zeros(self.entity_num)
+        for db in two_hop_neighbors:
+            if db != 0:
+                two_hop_vec[db] = 1  
+        
         return (
             context,
             c_lengths,
@@ -695,6 +701,8 @@ class CRSdataset(Dataset):
             np.array(dbpedia_mask),
             concept_vec,
             db_vec,
+            one_hop_vec,
+            two_hop_vec,
             rec,
         )
 
@@ -703,59 +711,5 @@ class CRSdataset(Dataset):
 
 
 if __name__ == "__main__":
-    args = setup_args().parse_args()
-    print(vars(args))
-    ds = dataset("data/train_data.jsonl", vars(args))
-    train_set = CRSdataset(
-        ds.data_process(),
-        vars(args)["n_entity"],
-        vars(args)["n_concept"],
-    )
-
-    with open('all_src_des_pairs.json','w') as f:
-        json.dump(list(ds.all_src_des_pairs), f)
-
-    # train_non_item_entities = set(ds.non_item_entities)
-
-    # print(len(set(ds.non_item_entities)))
-    # print(len(set(ds.mentioned_movie_dbpedia)))
-    # print(len(train_non_item_entities))
-
-    # print('----------------------------------------------------')
-
-    # ds = dataset("data/valid_data.jsonl", vars(args))
-    # train_set = CRSdataset(
-    #     ds.data_process(),
-    #     vars(args)["n_entity"],
-    #     vars(args)["n_concept"],
-    # )
-
-    # valid_non_item_entities = set(ds.non_item_entities)
-
-    # print(len(set(ds.non_item_entities)))
-    # print(len(set(ds.mentioned_movie_dbpedia)))
-    # print(len(valid_non_item_entities))   
-
-    # print('----------------------------------------------------') 
-    
-    # ds = dataset("data/test_data.jsonl", vars(args))
-    # train_set = CRSdataset(
-    #     ds.data_process(),
-    #     vars(args)["n_entity"],
-    #     vars(args)["n_concept"],
-    # )
-
-    # test_non_item_entities = set(ds.non_item_entities)
-
-    # print(len(set(ds.non_item_entities)))
-    # print(len(set(ds.mentioned_movie_dbpedia)))
-    # print(len(test_non_item_entities))
-
-
-    # all_non_items = list(set(list(train_non_item_entities) + list(valid_non_item_entities) + list(test_non_item_entities)))
-    # print(len(all_non_items))
-
-    # with open('all_non_items.json','w') as f:
-    #     json.dump(all_non_items, f)
-
-
+    ds = dataset("data/train_data.jsonl")
+    print()
