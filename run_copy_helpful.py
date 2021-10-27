@@ -44,6 +44,9 @@ import wandb
 
 import random
 
+import nltk
+nltk.download('punkt')
+
 try:
     import torch.version
     import torch.distributed as dist
