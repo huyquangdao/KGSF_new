@@ -62,6 +62,7 @@ except ImportError:
 from nltk.translate.bleu_score import sentence_bleu
 
 
+
 def is_distributed():
     """
     Returns True if we are in distributed mode.
@@ -79,6 +80,17 @@ def seed_all(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
+
+
+def setup(rank, world_size):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+
+    # initialize the process group
+    dist.init_process_group("gloo", rank=rank, world_size=world_size)
+
+def cleanup():
+    dist.destroy_process_group()
 
 
 def setup_args():
@@ -100,6 +112,9 @@ def setup_args():
     )
     train.add_argument("-epoch", "--epoch", type=int, default=2)
     train.add_argument("-gpu", "--gpu", type=str, default="0,1")
+
+    train.add_argument("-n_gpu", "--n_gpu", type=int, default=2)
+
     train.add_argument("-gradient_clip", "--gradient_clip", type=float, default=0.1)
     train.add_argument("-embedding_size", "--embedding_size", type=int, default=300)
 
@@ -149,7 +164,7 @@ def setup_args():
 
 
 class TrainLoop_fusion_rec:
-    def __init__(self, opt, is_finetune):
+    def __init__(self, opt, is_finetune, gpu, rank):
         self.opt = opt
         self.train_dataset = dataset("data/train_data.jsonl", opt)
 
@@ -170,12 +185,13 @@ class TrainLoop_fusion_rec:
             self.load_data = False
         self.is_finetune = False
 
+        self.gpu = gpu
+        self.rank = rank
+
         self.info_loss_ratio = self.opt["info_loss_ratio"]
         self.movie_ids = pkl.load(open("generated_data/final_movie_ids.pkl", "rb"))
         # Note: we cannot change the type of metrics ahead of time, so you
         # should correctly initialize to floats or ints here
-
-        self.gpu_list = [int(x) for x in opt['gpu'].split(',')]
 
         self.metrics_rec = {
             "recall@1": 0,
@@ -218,25 +234,40 @@ class TrainLoop_fusion_rec:
         if self.opt["embedding_type"] != "random":
             pass
         if self.use_cuda:
-            self.model.cuda()
+            self.model.cuda(self.gpu)
+            self.model.criterion.cuda(self.gpu)
+            self.model.info_db_loss.cuda(self.gpu)
+            self.model.info_con_loss.cuda(self.gpu)
 
-    def train(self):
+            self.model = nn.parallel.DistributedDataParallel(self.model,
+                                                device_ids=[self.gpu])
+
+    def train(self, gpu):
         # self.model.load_model()
         losses = []
         best_val_rec = 0
         rec_stop = False
 
+        #change the model to the current gpu
+        
         if self.train_MIM:
             print("Pretraining MIM objective ... ")
             for i in range(3):
-                
+
                 train_set = CRSdataset(
                     self.train_dataset.data_process(),
                     self.opt["n_entity"],
                     self.opt["n_concept"],
                 )
+
+                train_sampler = torch.utils.data.distributed.DistributedSampler(
+                    train_set,
+                    num_replicas = self.opt['world_size']
+                    rank = self.rank
+                )
+
                 train_dataset_loader = torch.utils.data.DataLoader(
-                    dataset=train_set, batch_size=self.batch_size, shuffle=False
+                    dataset=train_set, batch_size=self.batch_size, shuffle=False, sampler = train_sampler
                 )
                 num = 0
                 for (
@@ -343,8 +374,15 @@ class TrainLoop_fusion_rec:
                 self.opt["n_entity"],
                 self.opt["n_concept"],
             )
+
+            train_sampler = torch.utils.data.distributed.DistributedSampler(
+                    train_set,
+                    num_replicas = self.opt['world_size']
+                    rank = self.rank
+            )
+
             train_dataset_loader = torch.utils.data.DataLoader(
-                dataset=train_set, batch_size=self.batch_size, shuffle=False
+                dataset=train_set, batch_size=self.batch_size, shuffle=False, sampler = train_sampler
             )
             num = 0
             for (
@@ -919,7 +957,7 @@ class TrainLoop_fusion_gen:
         if self.opt["embedding_type"] != "random":
             pass
         if self.use_cuda:
-            self.model.cuda()
+            self.model.cuda(self.gpu)
 
     def train(self):
         self.model.load_model(name='final_recommendation_model.pkl')
@@ -1383,6 +1421,28 @@ class TrainLoop_fusion_gen:
         gradient accumulation if agent is called with --update-freq.
         """
         self.optimizer.zero_grad()
+    
+def train_rec(gpu, args):
+
+    offset = 4
+
+    gpu = gpu + offset
+    rank = args.n_gpu + gpu	
+
+    loop = TrainLoop_fusion_rec(vars(args), is_finetune=False, gpu, rank)
+    torch.cuda.set_device(gpu)    
+    # loop.model.cuda(gpu)
+                          
+    dist.init_process_group(                                   
+    	backend='nccl',                                         
+   		init_method='env://',                                   
+    	world_size=args.world_size,                              
+    	rank=rank                                               
+    )       
+
+    loop.train()
+    if gpu == 0:
+        print("Training complete in: " + str(datetime.now() - start))
 
 
 if __name__ == "__main__":
@@ -1391,9 +1451,10 @@ if __name__ == "__main__":
     seed_all(vars(args)["random_seed"])
 #     wandb.config.update(args)
     if args.is_finetune == False:
-        loop = TrainLoop_fusion_rec(vars(args), is_finetune=False)
+        # loop = TrainLoop_fusion_rec(vars(args), is_finetune=False)
         # loop.model.load_model()
-        loop.train()
+        mp.spawn(train_rec, nprocs=args.n_gpu, args=(args,))
+        # loop.train()
     else:
         loop = TrainLoop_fusion_gen(vars(args), is_finetune=True)
         # loop.train()
