@@ -624,8 +624,8 @@ class CrossModel(nn.Module):
         #     mask=con_emb_mask.cuda(),
         # )
 
-        con_user_emb = 
-        db_user_emb = 
+        # con_user_emb = 
+        # db_user_emb = 
         
         # con_user_emb = graph_con_emb
         # type-aware graph pooling
