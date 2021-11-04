@@ -135,8 +135,9 @@ class dataset(object):
         num_edges = 0
         for sample in self.movie_keywords:
             key_words = sample['keywords']
-            key_words = [x.replace(' ','_') for x in key_words]
-            re_tokenized_keywords = [word_tokenize(x) for x in key_words]
+            temp = [x.replace(' ','_') for x in key_words]
+
+            re_tokenized_keywords = [word_tokenize(x) for x in temp + key_words]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
 
             sample['keywords'] = list(set(re_tokenized_keywords))
@@ -155,13 +156,19 @@ class dataset(object):
 
         new_word_item_graph = defaultdict(list)
 
+        print(len(self.key2index))
+
+        all_covered_concept = []
         for sample in self.movie_keywords:
             if sample['keywords'] == []:
                 continue
             new_word_item_graph[sample['movie_id']] = sample['keywords']
+            all_covered_concept.extend(sample['keywords'])
         
         print('number of nodes: ', len(new_word_item_graph))
         print('number of edges: ', compute_number_of_edges(new_word_item_graph))
+
+        print('number of covered concept: ',len(set(all_covered_concept)))
         
         # for sample in self.movie_genres:
         #     genres = sample['genres']
