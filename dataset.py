@@ -137,7 +137,7 @@ class dataset(object):
             key_words = sample['keywords']
             temp = [x.replace(' ','_') for x in key_words]
 
-            re_tokenized_keywords = [word_tokenize(x) for x in temp + key_words]
+            re_tokenized_keywords = [word_tokenize(x) for x in temp]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
 
             sample['keywords'] = list(set(re_tokenized_keywords))
