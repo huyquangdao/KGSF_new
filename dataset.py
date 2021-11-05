@@ -140,7 +140,7 @@ class dataset(object):
             movie_name = sample['movie_name']
             movie_name = movie_name.lower()
 
-            re_tokenized_keywords = [word_tokenize(x) for x in [movie_name] + temp + key_words[:50]]
+            re_tokenized_keywords = [word_tokenize(x) for x in [movie_name] + temp]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
 
             # re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
