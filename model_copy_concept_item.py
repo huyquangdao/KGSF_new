@@ -1,4 +1,3 @@
-%%writefile model.py
 from models.transformer import (
     TorchGeneratorModel,
     _build_encoder,

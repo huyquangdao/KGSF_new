@@ -1,4 +1,3 @@
-%%writefile dataset.py
 import numpy as np
 from tqdm import tqdm
 import pickle as pkl
