@@ -129,6 +129,8 @@ class dataset(object):
         self.movie_keywords = json.load(open('generated_data/new_attribute_genres_company.json'))
         print(len(self.movie_keywords))
 
+        key_concepts = json.load(open('generated_data/key_concepts.json'))
+
         mi = 1000
         ma = -1
         all_lens = []

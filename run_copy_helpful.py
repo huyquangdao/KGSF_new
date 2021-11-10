@@ -99,7 +99,6 @@ def setup_args():
         "-embedding_type", "--embedding_type", type=str, default="random"
     )
     train.add_argument("-epoch", "--epoch", type=int, default=2)
-    train.add_argument("-gpu", "--gpu", type=int, default=0)
     train.add_argument("-gradient_clip", "--gradient_clip", type=float, default=0.1)
     train.add_argument("-embedding_size", "--embedding_size", type=int, default=300)
 
@@ -170,14 +169,10 @@ class TrainLoop_fusion_rec:
             self.load_data = False
         self.is_finetune = False
 
-        self.device = torch.device('cuda:'+opt['gpu'])
-
         self.info_loss_ratio = self.opt["info_loss_ratio"]
         self.movie_ids = pkl.load(open("generated_data/final_movie_ids.pkl", "rb"))
         # Note: we cannot change the type of metrics ahead of time, so you
         # should correctly initialize to floats or ints here
-
-        self.gpu_list = [int(x) for x in opt['gpu'].split(',')]
 
         self.metrics_rec = {
             "recall@1": 0,

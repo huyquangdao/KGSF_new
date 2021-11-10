@@ -1005,7 +1005,7 @@ class TrainLoop_fusion_gen:
 
             output_metrics_gen = self.val(is_test=False)
             
-            if best_val_gen < output_metrics_gen["dist4"]:
+            if best_val_gen > output_metrics_gen["dist4"]:
                 pass
             else:
                 best_val_gen = output_metrics_gen["dist4"]
@@ -1015,7 +1015,7 @@ class TrainLoop_fusion_gen:
                 )
 
         print('Loading the best generation model ......')
-        self.model.load_model(name  = 'generation_model.pkl')
+        self.model.load_model(name = 'generation_model.pkl')
         _ = self.val(is_test=True)
 
     def val(self, is_test=False):
