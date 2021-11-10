@@ -134,10 +134,11 @@ class dataset(object):
         mi = 1000
         ma = -1
         all_lens = []
+        count = 0
         num_edges = 0
         for sample in self.movie_keywords:
             key_words = sample['keywords']
-            temp = [x.replace(' ','_') for x in key_words]
+            temp = [x.replace(' ','_') for x in key_words][:20]
 
             movie_name = sample['movie_name']
             movie_name = movie_name.lower()
@@ -154,11 +155,13 @@ class dataset(object):
             
             if len(re_tokenized_keywords) <= mi:
                 mi = len(re_tokenized_keywords)
+                if mi == 0:
+                    count +=1 
             
             num_edges += len(set(re_tokenized_keywords))
             all_lens.append(len(re_tokenized_keywords))
     
-        print(mi, ma)   
+        print(mi, ma, count)   
         print(num_edges)
 
         new_word_item_graph = defaultdict(list)
