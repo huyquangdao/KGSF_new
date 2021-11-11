@@ -147,7 +147,7 @@ class dataset(object):
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
 
             # re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
-            sample['keywords'] = list(set(re_tokenized_keywords))[:30]
+            sample['keywords'] = list(set(re_tokenized_keywords))
 
             if len(re_tokenized_keywords) >= ma:
                 ma = len(re_tokenized_keywords)
