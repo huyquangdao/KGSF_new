@@ -6,8 +6,11 @@ from nltk import word_tokenize
 import re
 from torch.utils.data.dataset import Dataset
 import numpy as np
+import argparse
 
 import nltk
+
+from torch.utils.data import DataLoader
 nltk.download('punkt')
 
 
@@ -17,6 +20,71 @@ from random import shuffle
 import random
 
 from tqdm import tqdm
+
+def setup_args():
+    train = argparse.ArgumentParser()
+    train.add_argument("-random_seed", "--random_seed", type=int, default=234)
+    train.add_argument("-max_c_length", "--max_c_length", type=int, default=256)
+    train.add_argument("-max_r_length", "--max_r_length", type=int, default=30)
+    train.add_argument("-batch_size", "--batch_size", type=int, default=32)
+    train.add_argument("-max_count", "--max_count", type=int, default=5)
+    train.add_argument("-use_cuda", "--use_cuda", type=bool, default=True)
+    train.add_argument("-load_dict", "--load_dict", type=str, default=None)
+    train.add_argument("-learningrate", "--learningrate", type=float, default=1e-3)
+    train.add_argument("-optimizer", "--optimizer", type=str, default="adam")
+    train.add_argument("-momentum", "--momentum", type=float, default=0)
+    train.add_argument("-is_finetune", "--is_finetune", type=bool, default=False)
+    train.add_argument(
+        "-embedding_type", "--embedding_type", type=str, default="random"
+    )
+    train.add_argument("-epoch", "--epoch", type=int, default=2)
+    train.add_argument("-gpu", "--gpu", type=str, default="0,1")
+    train.add_argument("-gradient_clip", "--gradient_clip", type=float, default=0.1)
+    train.add_argument("-embedding_size", "--embedding_size", type=int, default=300)
+
+    train.add_argument("-n_heads", "--n_heads", type=int, default=2)
+    train.add_argument("-n_layers", "--n_layers", type=int, default=2)
+    train.add_argument("-ffn_size", "--ffn_size", type=int, default=300)
+
+    train.add_argument("-dropout", "--dropout", type=float, default=0.1)
+    train.add_argument(
+        "-attention_dropout", "--attention_dropout", type=float, default=0.0
+    )
+    train.add_argument("-relu_dropout", "--relu_dropout", type=float, default=0.1)
+
+    train.add_argument(
+        "-learn_positional_embeddings",
+        "--learn_positional_embeddings",
+        type=bool,
+        default=False,
+    )
+    train.add_argument(
+        "-embeddings_scale", "--embeddings_scale", type=bool, default=True
+    )
+
+    train.add_argument("-n_entity", "--n_entity", type=int, default=64368)
+    train.add_argument("-n_relation", "--n_relation", type=int, default=214)
+    train.add_argument("-n_concept", "--n_concept", type=int, default=29308)
+    train.add_argument("-n_con_relation", "--n_con_relation", type=int, default=48)
+    train.add_argument("-dim", "--dim", type=int, default=128)
+    train.add_argument("-n_hop", "--n_hop", type=int, default=2)
+    train.add_argument("-kge_weight", "--kge_weight", type=float, default=1)
+    train.add_argument("-l2_weight", "--l2_weight", type=float, default=2.5e-6)
+    train.add_argument("-n_memory", "--n_memory", type=float, default=32)
+    train.add_argument(
+        "-item_update_mode", "--item_update_mode", type=str, default="0,1"
+    )
+    train.add_argument("-using_all_hops", "--using_all_hops", type=bool, default=True)
+    train.add_argument("-num_bases", "--num_bases", type=int, default=8)
+    train.add_argument("-max_neighbors", "--max_neighbors", type=int, default=10)
+
+    train.add_argument("-train_mim", "--train_mim", type=int, default=1)
+
+    train.add_argument(
+        "-info_loss_ratio", "--info_loss_ratio", type=float, default=0.025
+    )
+
+    return train
 
 
 def _edge_list_1(kg, n_entity, hop):
@@ -97,9 +165,12 @@ class dataset(object):
     def __init__(self, filename, opt):
         
         self.entity2entityId = pkl.load(open("generated_data/final_entity2entityId.pkl", "rb"))
+        self.entityid2entity = {v:k for k,v in self.entity2entityId.items() }
+
         self.entity_max = len(self.entity2entityId)
 
         self.id2entity = pkl.load(open("generated_data/final_id2entity.pkl", "rb"))
+        self.entity2id = {v:k for k,v in self.id2entity.items() }
         self.subkg = pkl.load(open("generated_data/final_2_hop_subkg.pkl", "rb"))  # need not back process
         
         self.new_subkg = create_2_hops_kg(self.subkg)
@@ -159,6 +230,7 @@ class dataset(object):
         )
 
         self.edge_list, self.relation_counts = _edge_list_1(self.subkg, 40000, hop=1)
+        
         
 #         with open('generated_data/final_generated_dfs_path.json','r') as f:
 #             self.dfs_paths = json.load(f)
@@ -393,30 +465,6 @@ class dataset(object):
             all_key_words = []
             movies = []
             
-#             if line['contexts'] == context_b and line['entity'] == entities_before:
-#                 mask = np.random.binomial(size = len(concept_mask), n=1, p = 0.75)
-#                 concept_mask = concept_mask * mask
-#             else:
-#                 entities_before = line['entity']
-#                 context_b = line['contexts']
-                
-            
-#             if len(line['entity']) > 0:
-#                 print(line['entity'])
-
-#             dfs_paths = self.dfs_paths[i]
-#             print(dfs_paths)
-
-            
-
-            
-            #review entities
-#             new_entities = []
-#             for entity in line['entity']:
-#                 if str(entity) in self.review2entities:
-#                     review_entities = self.review2entities[str(entity)]
-#                     review_entities = [int(x) for x in review_entities]
-#                     new_entities.extend(review_entities)
 
             #retrive multi-hop neighobors
             if len(line['entity']) > 0:
@@ -531,6 +579,7 @@ class dataset(object):
 
         movie_rec = []
         review_movie_rec = []
+        
         for word in token_text_com:
             if word[1:] in movies:
                 movie_rec.append(word[1:])
@@ -539,21 +588,24 @@ class dataset(object):
                     movie_id = self.entity2entityId[entity]
                     
                     if str(movie_id) in self.review2entities:
+                        
                         review_entities = self.review2entities[str(movie_id)]
                         review_entities = [int(x) for x in review_entities]
                         review_entities = [self.entityid2entity[x] for x in review_entities]
                         movie_entities = []
+
                         for entity in review_entities:
                             if entity in self.entity2id:
                                 review_movie_rec.append(self.entity2id[entity])
+                                
                         for m in review_movie_rec:
                             if m in movies:
                                 movie_rec.append(m)
-                except:
+                except Exception as e:
                     pass
-
+                    
         movie_rec_trans = []
-        for movie in movie_rec:
+        for movie in set(movie_rec):
             try:
                 entity = self.id2entity[str(movie)]
                 movie_rec_trans.append(self.entity2entityId[entity])
@@ -738,5 +790,13 @@ class CRSdataset(Dataset):
 
 
 if __name__ == "__main__":
-    ds = dataset("data/train_data.jsonl")
-    print()
+
+    args = setup_args().parse_args()
+    print(vars(args))
+    ds = dataset("data/train_data.jsonl", vars(args))
+
+    train_dataset_loader = DataLoader(
+        dataset=ds.data_process(), batch_size=32, shuffle=False
+    )
+
+    print(len(train_dataset_loader))
