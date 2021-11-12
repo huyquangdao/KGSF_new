@@ -170,14 +170,10 @@ class TrainLoop_fusion_rec:
             self.load_data = False
         self.is_finetune = False
 
-        self.device = torch.device('cuda:'+opt['gpu'])
-
         self.info_loss_ratio = self.opt["info_loss_ratio"]
         self.movie_ids = pkl.load(open("generated_data/final_movie_ids.pkl", "rb"))
         # Note: we cannot change the type of metrics ahead of time, so you
         # should correctly initialize to floats or ints here
-
-        self.gpu_list = [int(x) for x in opt['gpu'].split(',')]
 
         self.metrics_rec = {
             "recall@1": 0,
@@ -475,7 +471,7 @@ class TrainLoop_fusion_rec:
 
         print("Saving logs .........")
         save_logs(self.logs, self.log_file_name)
-        self.model.save_model(name = 'final_recommendation_model.pkl')
+        self.model.save_model(name = 'mim_final_recommendation_model.pkl')
 
     def metrics_cal_rec(self, rec_loss, scores, labels):
         batch_size = len(labels.view(-1).tolist())
@@ -921,9 +917,9 @@ class TrainLoop_fusion_gen:
             self.model.cuda()
 
     def train(self):
-        self.model.load_model(name='final_recommendation_model.pkl')
+        self.model.load_model(name='mim_final_recommendation_model.pkl')
         losses = []
-        best_val_gen = 1000
+        best_val_gen = -1
         gen_stop = False
         for i in range(self.epoch * 3):
             train_set = CRSdataset(
@@ -1021,15 +1017,17 @@ class TrainLoop_fusion_gen:
 
             output_metrics_gen = self.val(is_test=False)
             
-            if best_val_gen < output_metrics_gen["dist4"]:
+            if best_val_gen > output_metrics_gen["dist4"]:
                 pass
             else:
                 best_val_gen = output_metrics_gen["dist4"]
-                self.model.save_model(name='generation_model.pkl')
+                self.model.save_model(name='mim_generation_model.pkl')
                 print(
                     "generator model saved once------------------------------------------------"
                 )
 
+        print('loading best model ....')
+        self.model.load_model(name='mim_generation_model.pkl')
         _ = self.val(is_test=True)
 
     def val(self, is_test=False):

@@ -162,7 +162,7 @@ class dataset(object):
         with open('generated_data/word_item_edge_list.json','r') as f:
             self.word_item_edge_list = json.load(f)
                                          
-        self.word_item_kg = json.load(open('generated_data/processed_word_item_edge_list.json'))                                 
+        self.word_item_kg = json.load(open('processed_word_item_edge_list.json'))                                 
         word_item_edge_list = self.generate_word_item_edge_list()
         for k,v in word_item_edge_list.items():
             word_item_edge_list[k] = list(set(v))
@@ -383,15 +383,7 @@ class dataset(object):
             
             all_key_words = [self.key2index[x] + 40000 for x in all_key_words]
             random.shuffle(all_key_words)
-            all_key_words = all_key_words[:int(0.4 * len(all_key_words))]
-            
-            #review entities
-#             new_entities = []
-#             for entity in line['entity']:
-#                 if str(entity) in self.review2entities:
-#                     review_entities = self.review2entities[str(entity)]
-#                     review_entities = [int(x) for x in review_entities]
-#                     new_entities.extend(review_entities)
+            all_key_words = all_key_words[:int(0.4 * len(all_key_words))]     
 
             data_set.append(
                 [
@@ -507,6 +499,7 @@ class dataset(object):
                         for entity in review_entities:
                             if entity in self.entity2id:
                                 review_movie_rec.append(self.entity2id[entity])
+                                
                         for m in review_movie_rec:
                             if m in movies:
                                 movie_rec.append(m)
@@ -618,9 +611,7 @@ class CRSdataset(Dataset):
         self.entity_num = entity_num
         self.concept_num = concept_num + 1
         self.entity_max = 40000
-        
         self.word_item_offset = 40000
-        
         self.max_neighbors = 10
 
     def __getitem__(self, index):
@@ -657,7 +648,7 @@ class CRSdataset(Dataset):
 
         concept_vec = np.zeros(self.concept_num + self.word_item_offset)
         for con in concept_mask:
-            if con != 0:
+            if con != 40000:
                 concept_vec[con] = 1
         
         for con in key_words:

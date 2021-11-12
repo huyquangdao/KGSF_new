@@ -160,7 +160,6 @@ class dataset(object):
 
         self.edge_list, self.relation_counts = _edge_list_1(self.subkg, 40000, hop=1)
         
-        
 #         with open('generated_data/final_generated_dfs_path.json','r') as f:
 #             self.dfs_paths = json.load(f)
         
@@ -529,10 +528,30 @@ class dataset(object):
             else:
                 token_text_com.append(token_text[num])
                 num += 1
+
         movie_rec = []
+        review_movie_rec = []
         for word in token_text_com:
             if word[1:] in movies:
                 movie_rec.append(word[1:])
+                try:
+                    entity = self.id2entity[str(word[1:])]
+                    movie_id = self.entity2entityId[entity]
+                    
+                    if str(movie_id) in self.review2entities:
+                        review_entities = self.review2entities[str(movie_id)]
+                        review_entities = [int(x) for x in review_entities]
+                        review_entities = [self.entityid2entity[x] for x in review_entities]
+                        movie_entities = []
+                        for entity in review_entities:
+                            if entity in self.entity2id:
+                                review_movie_rec.append(self.entity2id[entity])
+                        for m in review_movie_rec:
+                            if m in movies:
+                                movie_rec.append(m)
+                except:
+                    pass
+
         movie_rec_trans = []
         for movie in movie_rec:
             try:

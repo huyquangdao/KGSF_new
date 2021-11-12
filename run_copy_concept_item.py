@@ -464,7 +464,7 @@ class TrainLoop_fusion_rec:
         save_logs(self.logs, self.log_file_name)
         print('Saving latent vectors ......')
         self.save_latent_vectors()
-        self.model.save_model(name = 'final_recommendation_model.pkl')
+        self.model.save_model(name = 'concept_final_recommendation_model.pkl')
 
     def metrics_cal_rec(self, rec_loss, scores, labels):
         batch_size = len(labels.view(-1).tolist())
@@ -915,12 +915,11 @@ class TrainLoop_fusion_gen:
             self.model.cuda()
 
     def train(self):
-        self.model.load_model(name='final_recommendation_model.pkl')
+        self.model.load_model(name='concept_final_recommendation_model.pkl')
         losses = []
         best_val_gen = -1
         gen_stop = False
         for i in range(self.epoch * 3):
-            print(f'Epoch: {i + 1}')
             train_set = CRSdataset(
                 self.train_dataset.data_process(True),
                 self.opt["n_entity"],
@@ -1003,19 +1002,17 @@ class TrainLoop_fusion_gen:
                     losses = []
                 num += 1
 
-            output_metrics_gen = self.val(is_test=False)
+            output_metrics_gen = self.val(is_test=True)
             
             if best_val_gen > output_metrics_gen["dist4"]:
                 pass
             else:
                 best_val_gen = output_metrics_gen["dist4"]
-                self.model.save_model(name  = 'generation_model.pkl')
+#                 self.model.save_model()
                 print(
                     "generator model saved once------------------------------------------------"
                 )
 
-        print('Loading the best generation model ......')
-        self.model.load_model(name = 'generation_model.pkl')
         _ = self.val(is_test=True)
 
     def val(self, is_test=False):

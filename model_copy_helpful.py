@@ -636,20 +636,7 @@ class CrossModel(nn.Module):
 #             seed_set = list(set(seed_set + one_hop_sets[i]))  
             proj_user_representation = db_nodes_features[seed_set]  # torch can reflect
             proj_user_representation = self.self_attn_db(proj_user_representation)
-            #one-hop neighbors, kg reasoning
-#             context_query = self.user_norm_1(torch.cat([con_user_emb[i], proj_user_representation], dim =-1))
-#             gate = F.sigmoid(self.gate_norm_1(context_query))
-#             context_query_1 = gate * proj_user_representation + (1 - gate) * con_user_emb[i]
-            
-#             proj_user_one_hop_representation = db_nodes_features[one_hop_sets[i]]
-#             one_hop_representation = compute_context_aware_entities_representation(context_query_1, 
-#                                                                                    proj_user_one_hop_representation, 
-#                                                                                    self.weight_matrix)
-            
-#             #bi-interaction aggregation
-#             proj_user_representation = F.leaky_relu(self.w_1(one_hop_representation + proj_user_representation)) + F.leaky_relu(self.w_2(one_hop_representation * proj_user_representation ))
                                            
-            
             proj_user_representation_list.append(proj_user_representation)
             db_con_mask.append(torch.ones([1]))
         

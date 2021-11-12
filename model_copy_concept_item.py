@@ -121,9 +121,9 @@ def _edge_list_word_item(kg, n_entity, hop):
                 edges.append(
                     (entity, neighbor )
                 )
-#                 edges.append(
-#                     (neighbor, entity)
-#                 )
+                edges.append(
+                    (neighbor, entity)
+                )
     
     return edges
 
@@ -260,15 +260,15 @@ class CrossModel(nn.Module):
         self.self_attn_con_edge = SelfAttentionLayer(opt["dim"], opt["dim"])
         self.proj_self_attn_db = SelfAttentionLayer(opt["dim"], opt["dim"])
 
-        self.user_norm = nn.Linear(opt["dim"] * 4, 2 * opt["dim"])
-        self.gate_norm = nn.Linear(2 * opt["dim"], 1)
+        self.user_norm = nn.Linear(opt["dim"] * 4, 1 * opt["dim"])
+        self.gate_norm = nn.Linear(1 * opt["dim"], 1)
         
         self.copy_norm = nn.Linear(
             opt["embedding_size"] * 2 + opt["embedding_size"], opt["embedding_size"]
         )
         self.representation_bias = nn.Linear(opt["embedding_size"], len(dictionary) + 4)
 
-        self.info_con_norm = nn.Linear(opt["dim"], opt["dim"])
+        self.info_con_norm = nn.Linear(2 * opt["dim"], 2 * opt["dim"])
         self.info_db_norm = nn.Linear(opt["dim"], opt["dim"])
         self.info_output_db = nn.Linear(opt["dim"], opt["n_entity"])
         self.info_output_con = nn.Linear(opt["dim"], opt["n_concept"] + 1)
@@ -301,7 +301,7 @@ class CrossModel(nn.Module):
 #         self.non_relational_edge_set = torch.LongTensor(non_relational_edge_set).cuda()
         
         #word_item_edge_list
-        self.word_item_kg = json.load(open('generated_data/processed_word_item_edge_list.json','r'))
+        self.word_item_kg = json.load(open('processed_word_item_edge_list.json','r'))
         self.word_item_edge_sets = _edge_list_word_item(self.word_item_kg, opt["n_entity"], hop = 1)
         
         self.temp = self.word_item_edge_sets
@@ -313,6 +313,7 @@ class CrossModel(nn.Module):
         
         print(self.word_item_edge_sets.shape[1])
                 
+        self.GAT_1 = GATConv(self.dim, self.dim)
         self.GCN_1 = GCNConv(self.dim, self.dim)
         self.GCN_2 = GCNConv(self.dim, self.dim)
         
@@ -349,8 +350,6 @@ class CrossModel(nn.Module):
                 self.user_norm.parameters(),
                 self.gate_norm.parameters(),
                 self.output_en.parameters(),
-                self.GCN_1.parameters(),
-                self.GCN_2.parameters()
             ]
             for param in params:
                 for pa in param:
@@ -626,26 +625,25 @@ class CrossModel(nn.Module):
             
         #concat kg
         concat_features = torch.cat([db_nodes_features, con_nodes_features], dim = 0)
-        word_item_features = self.GCN_1(concat_features, current_word_item_edge_sets)
-#         word_item_features = self.drop_out(word_item_features)
-#         word_item_features = F.relu(self.GCN_2(word_item_features, current_word_item_edge_sets))
+        word_item_features = F.leaky_relu(self.GCN_1(concat_features, current_word_item_edge_sets))
+        word_item_features = self.drop_out(word_item_features)
+        word_item_features = self.GCN_2(word_item_features, current_word_item_edge_sets)
 
         #final embeddings for items
         w_item_embedding = word_item_features[:self.opt['n_entity']]
-        entities_features  = torch.cat([db_nodes_features, w_item_embedding], dim =-1)
-
+        entities_features  = torch.cat([db_nodes_features,w_item_embedding], dim =-1)
         #final embeddings for words
         w_word_embedding = word_item_features[self.opt['n_entity']:]
-        word_features = torch.cat([con_nodes_features, w_word_embedding ], dim =-1)
+        word_features = torch.cat([con_nodes_features, w_word_embedding], dim =-1)
         
         concept_mask = concept_mask - 40000
         con_emb_mask = concept_mask == 0
-        
         graph_con_emb = word_features[concept_mask]
         con_user_emb, _ = self.self_attn(graph_con_emb, con_emb_mask.cuda())
         
         proj_user_representation_list = []
         db_con_mask = []
+        
         for i, seed_set in enumerate(seed_sets):
             if seed_set == []:
                 proj_user_representation_list.append(torch.zeros(2 * self.dim).cuda())
@@ -676,17 +674,17 @@ class CrossModel(nn.Module):
 #         print(db_label.shape)
         
         if pretrain == True:
-#             info_db_loss, info_con_loss = self.infomax_loss(
-#                 con_nodes_features,
-#                 db_nodes_features,
-#                 proj_con_user_emb,
-#                 proj_db_user_emb,
-#                 con_label,
-#                 db_label,
-#                 db_con_mask
-#             )
-            info_con_loss = 0
-            info_db_loss = 0
+            info_db_loss, info_con_loss = self.infomax_loss(
+                entities_features,
+                entities_features,
+                con_user_emb,
+                proj_db_user_emb,
+                con_label,
+                db_label,
+                db_con_mask
+            )
+#             info_con_loss = 0
+#             info_db_loss = 0
         else:
             #compute_link_prediction_loss
             if not test:
