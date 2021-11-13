@@ -350,6 +350,8 @@ class CrossModel(nn.Module):
                 self.user_norm.parameters(),
                 self.gate_norm.parameters(),
                 self.output_en.parameters(),
+                self.GCN_1.parameters(),
+                self.GCN_2.parameters(),
             ]
             for param in params:
                 for pa in param:
