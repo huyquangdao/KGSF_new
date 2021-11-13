@@ -1012,10 +1012,11 @@ class TrainLoop_fusion_gen:
             else:
                 best_val_gen = output_metrics_gen["dist4"]
 #                 self.model.save_model()
+                self.model.save_model(name='concept_final_generation_model.pkl')
                 print(
                     "generator model saved once------------------------------------------------"
                 )
-
+        self.model.load_model(name='concept_final_generation_model.pkl')
         _ = self.val(is_test=True)
 
     def val(self, is_test=False):
