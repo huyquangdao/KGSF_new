@@ -167,7 +167,7 @@ class dataset(object):
         # for k,v in word_item_edge_list.items():
         #     word_item_edge_list[k] = list(set(v))
         
-        print('number of entities in data: ', len(word_item_edge_list))
+        # print('number of entities in data: ', len(word_item_edge_list))
 #         with open('word_item_edge_list.json', 'w') as f:
 #             json.dump(word_item_edge_list, f)
 
