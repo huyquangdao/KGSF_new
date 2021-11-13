@@ -922,6 +922,9 @@ class TrainLoop_fusion_gen:
         best_val_gen = -1
         gen_stop = False
         for i in range(self.epoch * 3):
+
+            print(f'Epoch: {i+ 1}')
+
             train_set = CRSdataset(
                 self.train_dataset.data_process(True),
                 self.opt["n_entity"],

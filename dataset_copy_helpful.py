@@ -577,8 +577,9 @@ class dataset(object):
                 token_text_com.append(token_text[num])
                 num += 1
 
-        movie_rec = []
+        temp_movie_rec = []
         review_movie_rec = []
+        movie_rec = []
         
         for word in token_text_com:
             if word[1:] in movies:
@@ -600,12 +601,13 @@ class dataset(object):
                                 
                         for m in review_movie_rec:
                             if m in movies:
-                                movie_rec.append(m)
+                                temp_movie_rec.append(m)
+
                 except Exception as e:
                     pass
                     
         movie_rec_trans = []
-        for movie in set(movie_rec):
+        for movie in movie_rec + list(set(temp_movie_rec)):
             try:
                 entity = self.id2entity[str(movie)]
                 movie_rec_trans.append(self.entity2entityId[entity])

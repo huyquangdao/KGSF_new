@@ -162,10 +162,10 @@ class dataset(object):
         with open('generated_data/word_item_edge_list.json','r') as f:
             self.word_item_edge_list = json.load(f)
                                          
-        self.word_item_kg = json.load(open('processed_word_item_edge_list.json'))                                 
-        word_item_edge_list = self.generate_word_item_edge_list()
-        for k,v in word_item_edge_list.items():
-            word_item_edge_list[k] = list(set(v))
+        # self.word_item_kg = json.load(open('processed_word_item_edge_list.json'))                                 
+        # word_item_edge_list = self.generate_word_item_edge_list()
+        # for k,v in word_item_edge_list.items():
+        #     word_item_edge_list[k] = list(set(v))
         
         print('number of entities in data: ', len(word_item_edge_list))
 #         with open('word_item_edge_list.json', 'w') as f:
@@ -484,6 +484,7 @@ class dataset(object):
                 
         movie_rec = []
         review_movie_rec = []
+        
         for word in token_text_com:
             if word[1:] in movies:
                 movie_rec.append(word[1:])
@@ -492,10 +493,12 @@ class dataset(object):
                     movie_id = self.entity2entityId[entity]
                     
                     if str(movie_id) in self.review2entities:
+                        
                         review_entities = self.review2entities[str(movie_id)]
                         review_entities = [int(x) for x in review_entities]
                         review_entities = [self.entityid2entity[x] for x in review_entities]
                         movie_entities = []
+
                         for entity in review_entities:
                             if entity in self.entity2id:
                                 review_movie_rec.append(self.entity2id[entity])
