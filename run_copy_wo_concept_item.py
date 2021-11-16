@@ -34,7 +34,7 @@ import json
 import argparse
 import pickle as pkl
 from dataset_copy_concept_item import dataset, CRSdataset
-from model_copy_concept_item import CrossModel
+from model_copy_wo_concept_item import CrossModel
 import torch.nn as nn
 from torch import optim
 import torch
@@ -462,9 +462,9 @@ class TrainLoop_fusion_rec:
 
         print("Saving logs .........")
         save_logs(self.logs, self.log_file_name)
-        print('Saving latent vectors ......')
-        self.save_latent_vectors()
-        self.model.save_model(name = 'concept_final_recommendation_model.pkl')
+        # print('Saving latent vectors ......')
+        # self.save_latent_vectors()
+        self.model.save_model(name = 'wo_concept_final_recommendation_model.pkl')
 
     def metrics_cal_rec(self, rec_loss, scores, labels):
         batch_size = len(labels.view(-1).tolist())
@@ -915,7 +915,7 @@ class TrainLoop_fusion_gen:
             self.model.cuda()
 
     def train(self):
-        self.model.load_model(name='concept_final_recommendation_model.pkl')
+        self.model.load_model(name='wo_concept_final_recommendation_model.pkl')
         losses = []
         best_val_gen = -1
         gen_stop = False
@@ -1012,11 +1012,11 @@ class TrainLoop_fusion_gen:
             else:
                 best_val_gen = output_metrics_gen["dist4"]
 #                 self.model.save_model()
-                self.model.save_model(name='concept_final_generation_model.pkl')
+                self.model.save_model(name='wo_concept_final_generation_model.pkl')
                 print(
                     "generator model saved once------------------------------------------------"
                 )
-        self.model.load_model(name='concept_final_generation_model.pkl')
+        self.model.load_model(name='wo_concept_final_generation_model.pkl')
         _ = self.val(is_test=True)
 
     def val(self, is_test=False):
