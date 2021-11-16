@@ -676,17 +676,17 @@ class CrossModel(nn.Module):
 #         print(db_label.shape)
         
         if pretrain == True:
-            info_db_loss, info_con_loss = self.infomax_loss(
-                entities_features,
-                entities_features,
-                con_user_emb,
-                proj_db_user_emb,
-                con_label,
-                db_label,
-                db_con_mask
-            )
-#             info_con_loss = 0
-#             info_db_loss = 0
+            # info_db_loss, info_con_loss = self.infomax_loss(
+            #     entities_features,
+            #     entities_features,
+            #     con_user_emb,
+            #     proj_db_user_emb,
+            #     con_label,
+            #     db_label,
+            #     db_con_mask
+            # )
+            info_con_loss = 0
+            info_db_loss = 0
         else:
             #compute_link_prediction_loss
             if not test:

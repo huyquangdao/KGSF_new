@@ -34,7 +34,7 @@ import json
 import argparse
 import pickle as pkl
 from dataset_copy_concept_item import dataset, CRSdataset
-from model_copy_wo_concept_item import CrossModel
+from model_copy_wo_kg import CrossModel
 import torch.nn as nn
 from torch import optim
 import torch
