@@ -195,14 +195,6 @@ class CrossModel(nn.Module):
             opt["n_entity"] + 1, opt["dim"], opt["n_entity"]
         )
         
-        self.concept_embeddings_2 = _create_entity_embeddings(
-            opt["n_concept"] + 1, opt["dim"], 0
-        )
-        
-        self.db_embeddings_2 = _create_entity_embeddings(
-            opt["n_entity"] + 1, opt["dim"], opt["n_entity"] 
-        )
-        
         self.concept_padding = 0
         self.kg = pkl.load(open("generated_data/final_2_hop_subkg.pkl", "rb"))
         self.proj_self_attn = SelfAttentionLayer_batch(2 * opt["dim"],  2 * opt["dim"])
@@ -615,10 +607,13 @@ class CrossModel(nn.Module):
         encoder_states = prev_enc if prev_enc is not None else self.encoder(xs)
         # graph network
         
-        db_nodes_features = self.dbpedia_RGCN(None, self.db_edge_idx, self.db_edge_type)
-        con_nodes_features = self.concept_GCN(
-            self.concept_embeddings.weight, self.concept_edge_sets
-        )
+        # db_nodes_features = self.dbpedia_RGCN(None, self.db_edge_idx, self.db_edge_type)
+        # con_nodes_features = self.concept_GCN(
+        #     self.concept_embeddings.weight, self.concept_edge_sets
+        # )
+        db_nodes_features = self.db_embeddings.weight
+        con_nodes_features = self.concept_embeddings.weight
+         
         #concat kgs
         if test == False :
             current_word_item_edge_sets = self.word_item_edge_sets
