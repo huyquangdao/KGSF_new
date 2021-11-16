@@ -648,7 +648,7 @@ class CrossModel(nn.Module):
         
         for i, seed_set in enumerate(seed_sets):
             if seed_set == []:
-                proj_user_representation_list.append(torch.zeros(2 * self.dim).cuda())
+                proj_user_representation_list.append(torch.zeros(self.dim).cuda())
                 db_con_mask.append(torch.zeros([1]))
                 continue 
             
