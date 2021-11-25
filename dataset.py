@@ -146,8 +146,15 @@ class dataset(object):
             re_tokenized_keywords = [word_tokenize(x) for x in [movie_name] + temp]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
 
-            # re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
-            sample['keywords'] = list(set(re_tokenized_keywords))
+            re_tokenized_keywords = [word for word in re_tokenized_keywords if word not in self.stopwords and word != "n't"]
+            temp = []
+            for t in re_tokenized_keywords:
+                if t in temp:
+                    continue
+                temp.append(t)
+
+            sample['keywords'] = temp[:10]
+            # sample['keywords'] = list(set(re_tokenized_keywords))
 
             if len(re_tokenized_keywords) >= ma:
                 ma = len(re_tokenized_keywords)
@@ -161,7 +168,7 @@ class dataset(object):
             all_lens.append(len(re_tokenized_keywords))
     
         print(mi, ma, count)   
-        print(num_edges)
+        # print('number of edges in word item graph: ',num_edges)
 
         new_word_item_graph = defaultdict(list)
 

@@ -135,15 +135,27 @@ class dataset(object):
         for sample in self.movie_keywords:
             key_words = sample['keywords']
             temp = [x.replace(' ','_') for x in key_words]
-
             movie_name = sample['movie_name']
             movie_name = movie_name.lower()
+
+            # print(temp)
 
             re_tokenized_keywords = [word_tokenize(x) for x in [movie_name] + temp]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
 
+            re_tokenized_keywords = [x for x in re_tokenized_keywords if x not in self.stopwords]
+
             # re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
-            sample['keywords'] = list(set(re_tokenized_keywords))
+
+            temp = []
+            for t in re_tokenized_keywords:
+                if t in temp:
+                    continue
+                temp.append(t)
+
+            sample['keywords'] = temp[:20]
+
+            # assert 1==0
 
             if len(re_tokenized_keywords) >= ma:
                 ma = len(re_tokenized_keywords)
@@ -158,9 +170,7 @@ class dataset(object):
     
         print(mi, ma, count)   
         print(num_edges)
-
         new_word_item_graph = defaultdict(list)
-
         print(len(self.key2index))
 
         all_covered_concept = []
@@ -181,11 +191,11 @@ class dataset(object):
         #     genres = [word for word in genres if  word in self.key2index]
         #     new_word_item_graph[sample['movie_id']] = genres + new_word_item_graph[sample['movie_id']]
 
-        with open('generated_data/dbpedia_word_item_edge_list.json','w') as f:
-            json.dump(new_word_item_graph, f)
+        # with open('generated_data/dbpedia_word_item_edge_list.json','w') as f:
+        #     json.dump(new_word_item_graph, f)
         
-        with open('generated_data/dbpedia_word_item_edge_list.json','r') as f:
-            word_item_edge_list = json.load(f)
+        # with open('generated_data/dbpedia_word_item_edge_list.json','r') as f:
+        #     word_item_edge_list = json.load(f)
 
         #self.co_occurance_ext(self.data)
         #exit()
