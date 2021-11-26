@@ -153,7 +153,7 @@ class dataset(object):
                     continue
                 temp.append(t)
 
-            sample['keywords'] = temp[:30]
+            sample['keywords'] = temp
             # sample['keywords'] = list(set(re_tokenized_keywords))
 
             if len(re_tokenized_keywords) >= ma:
