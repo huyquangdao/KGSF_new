@@ -126,7 +126,7 @@ class dataset(object):
 
         self.stopwords=set([word.strip() for word in open('stopwords.txt',encoding='utf-8')])
 
-        self.movie_keywords = json.load(open('generated_data/new_attribute_genres_company.json'))
+        self.movie_keywords = json.load(open('generated_data/new_attribute_genres_company_person.json'))
         print(len(self.movie_keywords))
 
         key_concepts = json.load(open('generated_data/key_concepts.json'))
