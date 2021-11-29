@@ -153,7 +153,7 @@ class dataset(object):
                     continue
                 temp.append(t)
 
-            sample['keywords'] = temp[:20]
+            # sample['keywords'] = temp[:20]
 
             # assert 1==0
 
