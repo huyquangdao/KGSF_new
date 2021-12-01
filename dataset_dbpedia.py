@@ -134,16 +134,16 @@ class dataset(object):
         num_edges = 0
         for sample in self.movie_keywords:
             
-            key_words = sample['keywords']
+            key_words = sample['keywords'][:20]
             temp = [x.replace(' ','_') for x in key_words]
             movie_name = sample['movie_name']
             movie_name = movie_name.lower()
 
             # print(temp)
 
-            re_tokenized_keywords = [word_tokenize(x) for x in [movie_name] + key_words[:40]]
+            re_tokenized_keywords = [word_tokenize(x) for x in [movie_name] + temp]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
-            re_tokenized_keywords = [x for x in re_tokenized_keywords if x not in self.stopwords]
+            re_tokenized_keywords = [x for x in re_tokenized_keywords if x not in self.stopwords and x != "n't"]
 
             # re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
 
