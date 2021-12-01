@@ -141,7 +141,7 @@ class dataset(object):
 
             # print(temp)
 
-            re_tokenized_keywords = [word_tokenize(x) for x in [movie_name] + key_words[:40]]
+            re_tokenized_keywords = [word_tokenize(x) for x in [movie_name] + key_words[:30]]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
             re_tokenized_keywords = [x for x in re_tokenized_keywords if x not in self.stopwords]
 
