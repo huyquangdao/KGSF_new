@@ -133,6 +133,7 @@ class dataset(object):
         count = 0
         num_edges = 0
         for sample in self.movie_keywords:
+            
             key_words = sample['keywords']
             temp = [x.replace(' ','_') for x in key_words]
             movie_name = sample['movie_name']
@@ -140,9 +141,8 @@ class dataset(object):
 
             # print(temp)
 
-            re_tokenized_keywords = [word_tokenize(x) for x in [movie_name] + temp]
+            re_tokenized_keywords = [word_tokenize(x) for x in [movie_name] + key_words[:40]]
             re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
-
             re_tokenized_keywords = [x for x in re_tokenized_keywords if x not in self.stopwords]
 
             # re_tokenized_keywords = [word for words in re_tokenized_keywords for word in words if word in self.key2index]
@@ -154,7 +154,6 @@ class dataset(object):
                 temp.append(t)
 
             # sample['keywords'] = temp[:20]
-
             # assert 1==0
 
             if len(re_tokenized_keywords) >= ma:
