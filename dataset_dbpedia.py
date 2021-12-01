@@ -153,7 +153,7 @@ class dataset(object):
                     continue
                 temp.append(t)
 
-            # sample['keywords'] = temp[:20]
+            sample['keywords'] = temp
             # assert 1==0
 
             if len(re_tokenized_keywords) >= ma:
@@ -190,11 +190,11 @@ class dataset(object):
         #     genres = [word for word in genres if  word in self.key2index]
         #     new_word_item_graph[sample['movie_id']] = genres + new_word_item_graph[sample['movie_id']]
 
-        # with open('generated_data/dbpedia_word_item_edge_list.json','w') as f:
-        #     json.dump(new_word_item_graph, f)
+        with open('generated_data/dbpedia_word_item_edge_list.json','w') as f:
+            json.dump(new_word_item_graph, f)
         
-        # with open('generated_data/dbpedia_word_item_edge_list.json','r') as f:
-        #     word_item_edge_list = json.load(f)
+        with open('generated_data/dbpedia_word_item_edge_list.json','r') as f:
+            word_item_edge_list = json.load(f)
 
         #self.co_occurance_ext(self.data)
         #exit()
