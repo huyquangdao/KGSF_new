@@ -134,7 +134,7 @@ class dataset(object):
         num_edges = 0
         for sample in self.movie_keywords:
             
-            key_words = sample['keywords'][:30]
+            key_words = sample['keywords'][:40]
             temp = [x.replace(' ','_') for x in key_words]
             movie_name = sample['movie_name']
             movie_name = movie_name.lower()
