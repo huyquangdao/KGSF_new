@@ -179,7 +179,6 @@ class dataset(object):
         
         print('number of nodes: ', len(new_word_item_graph))
         print('number of edges: ', compute_number_of_edges(new_word_item_graph))
-
         print('number of covered concept: ',len(set(all_covered_concept)))
         
         # for sample in self.movie_genres:

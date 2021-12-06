@@ -738,6 +738,9 @@ class CrossModel(nn.Module):
                 mask_ys,
             )
             gen_loss = torch.mean(self.compute_loss(scores, mask_ys))
+            #bag of concept loss
+            concept_loss = torch.mean(self.compute_concept_loss(scores, mask_ys, mask_concept))
+            
 
         else:
             
