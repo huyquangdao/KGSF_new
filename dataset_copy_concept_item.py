@@ -1,3 +1,4 @@
+%%writefile dataset.py
 import numpy as np
 from tqdm import tqdm
 import pickle as pkl
@@ -11,7 +12,7 @@ from collections import defaultdict
 from random import shuffle
 import random
 
-from tqdm import tqdm
+
 
 
 def _edge_list_1(kg, n_entity, hop):
@@ -21,12 +22,12 @@ def _edge_list_1(kg, n_entity, hop):
             # add self loop
             # edge_list.append((entity, entity))
             # self_loop id = 185
-            edge_list.append((entity, entity, 13))
+            edge_list.append((entity, entity, 185))
             if entity not in kg:
                 continue
             for tail_and_relation in kg[entity]:
                 if (
-                    entity != tail_and_relation[1] and tail_and_relation[0] != 13
+                    entity != tail_and_relation[1] and tail_and_relation[0] != 185
                 ):  # and tail_and_relation[0] in EDGE_TYPES:
                     edge_list.append(
                         (entity, tail_and_relation[1], tail_and_relation[0])
@@ -40,11 +41,11 @@ def _edge_list_1(kg, n_entity, hop):
     for h, t, r in edge_list:
         relation_cnt[r] += 1
     for h, t, r in edge_list:
-        if relation_cnt[r] > 10 and r not in relation_idx:
+        if relation_cnt[r] > 1000 and r not in relation_idx:
             relation_idx[r] = len(relation_idx)
 
     return [
-        (h, t, relation_idx[r]) for h, t, r in edge_list if relation_cnt[r] > 10
+        (h, t, relation_idx[r]) for h, t, r in edge_list if relation_cnt[r] > 1000
     ], relation_cnt
 
 
@@ -55,54 +56,25 @@ def get_neighborhood(edge_list, entity_id, max_neighbors=30):
 
 def get_2_hops_neighbors_via_kg(kg, entity_id, relation_counts, max_neighbors=5):
     #     one_hops_neighbors = [t[1] for t in kg[entity_id] if t[1] != entity_id and relation_counts[int(t[0])] > 1000]
-    
-#     print(list(kg.keys())[:10])
-    
     one_hops_neighbors = [t[1] for t in kg[entity_id] if t[1] != entity_id]
-    random.shuffle(one_hops_neighbors)
-    one_hops_neighbors = one_hops_neighbors[:max_neighbors]
     two_hops_neighbors = [
         t[1]
         for n_id in one_hops_neighbors
         for t in kg[n_id]
-        if t[1] != entity_id and t[1] != n_id
+        if t[1] != entity_id and relation_counts[t[0]] > 1000
     ]
-#     random.shuffle(two_hops_neighbors)
-    return one_hops_neighbors, two_hops_neighbors[:max_neighbors]
+    random.shuffle(one_hops_neighbors)
+    return one_hops_neighbors[:max_neighbors], two_hops_neighbors[:max_neighbors]
 
-
-# def get_2_hops_neighbors(edge_list, entity_id, max_neighbors = 5):
-#     one_hop_neighbors = [triplet[1] for triplet in edge_list if triplet[0] == entity_id]
-#     two_hop_neighbors = [triplet[1] for n_id in one_hop_neighbors for triplet in edge_list if triplet[0] == entity_id]
-
-def create_2_hops_kg(kg):
-    new_kg = defaultdict(list)
-    for k,v in kg.items():
-        new_kg[k] = v
-        for r, e in v:
-            new_kg[e].append((r, k))
-    
-    for k,v in new_kg.items():
-        new_kg[k] = list(set(v))
-    
-    return new_kg
-        
 
 class dataset(object):
     def __init__(self, filename, opt):
-        
-        self.entity2entityId = pkl.load(open("generated_data/final_entity2entityId.pkl", "rb"))
-        self.entityid2entity = {v:k for k,v in self.entity2entityId.items() }
-        
-        self.entity_max = len(self.entity2entityId)
-        
-        self.word_item_offset = 40000
+        self.entity2entityId = pkl.load(open("data/entity2entityId.pkl", "rb"))
+        self.entity_max = 64368
 
-        self.id2entity = pkl.load(open("generated_data/final_id2entity.pkl", "rb"))
-        self.entity2id = {v:k for k,v in self.id2entity.items() }
-        self.subkg = pkl.load(open("generated_data/final_2_hop_subkg.pkl", "rb"))  # need not back process
-        self.new_subkg = create_2_hops_kg(self.subkg)
-        self.text_dict = pkl.load(open("generated_data/final_text_dict.pkl", "rb"))
+        self.id2entity = pkl.load(open("data/id2entity.pkl", "rb"))
+        self.subkg = pkl.load(open("data/subkg.pkl", "rb"))  # need not back process
+        self.text_dict = pkl.load(open("data/text_dict.pkl", "rb"))
 
         self.batch_size = opt["batch_size"]
         self.max_c_length = opt["max_c_length"]
@@ -111,15 +83,11 @@ class dataset(object):
         self.entity_num = opt["n_entity"]
         self.max_neighbors = opt["max_neighbors"]
         
-        with open('generated_data/final_review_2_movie_entities.json','r') as f:
-            self.review2entities = json.load(f)
-            
-#         self.word_item_graph = json.load(open('processed_word_item_edge_list.json'))
+        self.word_item_graph = json.load(open('processed_word_item_edge_list.json'))
         # self.word2index=json.load(open('word2index.json',encoding='utf-8'))
 
         f = open(filename, encoding="utf-8")
         self.data = []
-        self.all_movies = []
         self.corpus = []
         for line in tqdm(f):
             lines = json.loads(line.strip())
@@ -133,43 +101,44 @@ class dataset(object):
                 contexts, movies, altitude, initial_altitude, seekerid, recommenderid
             )
             self.data.extend(cases)
-            self.all_movies.extend(movies)
-        
-        self.all_movies = list(set(self.all_movies))
-        self.all_trans_movies = []
-        
-        for movie in self.all_movies:
-            try:
-                entity = self.id2entity[str(movie)]
-                id = self.entity2entityId[entity]
-                self.all_trans_movies.append(id)
-            except:
-                pass
 
         # if 'train' in filename:
+
         # self.prepare_word2vec()
         self.word2index = json.load(open("word2index_redial.json", encoding="utf-8"))
         self.key2index = json.load(open("key2index_3rd.json", encoding="utf-8"))
         
+
         self.stopwords = set(
             [word.strip() for word in open("stopwords.txt", encoding="utf-8")]
         )
 
-        self.edge_list, self.relation_counts = _edge_list_1(self.subkg, 40000, hop=1)
-#         with open('generated_data/final_generated_dfs_path.json','r') as f:
-#             self.dfs_paths = json.load(f)
+        self.edge_list, self.relation_counts = _edge_list_1(self.subkg, 64368, hop=2)
         
-        with open('generated_data/word_item_edge_list.json','r') as f:
+        with open('generated_data/dbpedia_word_item_edge_list.json','r') as f:
             self.word_item_edge_list = json.load(f)
                                          
-        # self.word_item_kg = json.load(open('processed_word_item_edge_list.json'))                                 
-        # word_item_edge_list = self.generate_word_item_edge_list()
-        # for k,v in word_item_edge_list.items():
-        #     word_item_edge_list[k] = list(set(v))
+        self.word_item_kg = json.load(open('processed_word_item_edge_list.json'))
+                                   
+        self.key_words_pool = []
         
-        # print('number of entities in data: ', len(word_item_edge_list))
+        for sample, words in self.word_item_kg.items():
+            self.key_words_pool.extend(words)
+        
+        self.key_words_pool = set(self.key_words_pool)
+        
+        print(len(self.key_words_pool))
+                                   
+#         word_item_edge_list = self.generate_word_item_edge_list()
+#         for k,v in word_item_edge_list.items():
+#             word_item_edge_list[k] = list(set(v))
+        
+#         print('number of entities in data: ', len(word_item_edge_list))
+       
 #         with open('word_item_edge_list.json', 'w') as f:
 #             json.dump(word_item_edge_list, f)
+#         assert 1==0
+
 
         if self.max_neighbors > 0:
             print(
@@ -185,8 +154,8 @@ class dataset(object):
         # exit()
 
     def prepare_word2vec(self):
-        
         import gensim
+
         model = gensim.models.word2vec.Word2Vec(self.corpus, size=300, min_count=1)
         model.save("word2vec_redial")
         word2index = {word: i + 4 for i, word in enumerate(model.wv.index2word)}
@@ -208,40 +177,57 @@ class dataset(object):
         np.save("word2vec_redial.npy", word2embedding)
 
     def padding_w2v(self, sentence, max_length, transformer=True, pad=0, end=2, unk=3):
-        
-        vector=[]
-        concept_mask=[]
-        dbpedia_mask=[]
+        vector = []
+        concept_mask = []
+        dbpedia_mask = []
         for word in sentence:
-            vector.append(self.word2index.get(word,unk))
-            #if word.lower() not in self.stopwords:
-            concept_mask.append(self.key2index.get(word.lower(),0) + self.word_item_offset)
-            #else:
+            vector.append(self.word2index.get(word, unk))
+            # if word.lower() not in self.stopwords:
+            word_idx = self.key2index.get(word.lower(), 0) + self.entity_max
+            concept_mask.append(word_idx)
+            
+#             if word_idx in self.key_words_pool: 
+#                 concept_mask.append(word_idx)
+#             else:
+#                 concept_mask.append(0 + self.entity_ma
+            # else:
             #    concept_mask.append(0)
-            if '@' in word:
+            if "@" in word:
                 try:
-                    entity = self.id2entity[str(word[1:])]
-                    id=self.entity2entityId[entity]
+                    entity = self.id2entity[int(word[1:])]
+                    id = self.entity2entityId[entity]
                 except:
-                    id=self.entity_max
+                    id = self.entity_max
                 dbpedia_mask.append(id)
             else:
                 dbpedia_mask.append(self.entity_max)
-                
         vector.append(end)
-        concept_mask.append(0 + self.word_item_offset)
+        concept_mask.append(0 + self.entity_max)
         dbpedia_mask.append(self.entity_max)
 
-        if len(vector)>max_length:
+        if len(vector) > max_length:
             if transformer:
-                return vector[-max_length:],max_length,concept_mask[-max_length:],dbpedia_mask[-max_length:]
+                return (
+                    vector[-max_length:],
+                    max_length,
+                    concept_mask[-max_length:],
+                    dbpedia_mask[-max_length:],
+                )
             else:
-                return vector[:max_length],max_length,concept_mask[:max_length],dbpedia_mask[:max_length]
+                return (
+                    vector[:max_length],
+                    max_length,
+                    concept_mask[:max_length],
+                    dbpedia_mask[:max_length],
+                )
         else:
-            length=len(vector)
-            return vector+(max_length-len(vector))*[pad],length,\
-                   concept_mask+(max_length-len(vector))*[0 + self.word_item_offset],dbpedia_mask+(max_length-len(vector))*[self.entity_max]
-            
+            length = len(vector)
+            return (
+                vector + (max_length - len(vector)) * [pad],
+                length,
+                concept_mask + (max_length - len(vector)) * [0 + self.entity_max],
+                dbpedia_mask + (max_length - len(vector)) * [self.entity_max],
+            )
 
     def padding_context(self, contexts, pad=0, transformer=True):
         vectors = []
@@ -333,6 +319,7 @@ class dataset(object):
                     # re-assign old entities
                     old_entities = line['entity']
             context_before = line['contexts']
+            
         return word_item_edge_dic
     
 
@@ -341,11 +328,7 @@ class dataset(object):
         context_before = []
         
         i = 0
-        
-        entities_before = None
-        context_b = None
-        
-        for idx, line in enumerate(self.data):
+        for line in self.data:
             # if len(line['contexts'])>2:
             #    continue
             i+= 1
@@ -371,19 +354,32 @@ class dataset(object):
             assert len(concept_mask) == self.max_c_length
             assert len(dbpedia_mask) == self.max_c_length
             
-            #retrive keywords associated with movies
             all_key_words = []
             movies = []
             for entity in line['entity']:
+                if str(entity) in self.word_item_graph:
+                    movies.append(entity)
                 try:
                     key_words = self.word_item_edge_list[str(entity)]
+#                     random.shuffle(key_words)
+#                     key_words = key_words[:int(0.2 * len(key_words))]
                     all_key_words.extend(key_words)
                 except:
                     all_key_words.extend([])
+                
             
-            all_key_words = [self.key2index[x] + 40000 for x in all_key_words]
-            random.shuffle(all_key_words)
-            all_key_words = all_key_words[:int(0.4 * len(all_key_words))]     
+            all_key_words = [self.word2index[x] if x in self.word2index else self.word2index.get(x.title(),0) for x in all_key_words]
+            #neighborhood intercoporation
+            neighbors = []
+#             for id in movies:
+#                 one_hops_neighbors, two_hops_neighbors = get_2_hops_neighbors_via_kg(
+#                     self.subkg,
+#                     id,
+#                     self.relation_counts,
+#                     max_neighbors=self.max_neighbors,
+#                 )
+#                 neighbors.extend(one_hops_neighbors)
+#             final_entity = line["entity"] + neighbors
 
             data_set.append(
                 [
@@ -393,13 +389,13 @@ class dataset(object):
                     r_length,
                     np.array(mask_response),
                     mask_r_length,
-                    line['entity'],
+                    line["entity"],
                     line["movie"],
                     concept_mask,
                     dbpedia_mask,
                     line["rec"],
                     all_key_words,
-                    movies,
+                    movies + neighbors
                 ]
             )
         return data_set
@@ -481,38 +477,14 @@ class dataset(object):
             else:
                 token_text_com.append(token_text[num])
                 num += 1
-                
         movie_rec = []
-        review_movie_rec = []
-        
         for word in token_text_com:
             if word[1:] in movies:
                 movie_rec.append(word[1:])
-                try:
-                    entity = self.id2entity[str(word[1:])]
-                    movie_id = self.entity2entityId[entity]
-                    
-                    if str(movie_id) in self.review2entities:
-                        
-                        review_entities = self.review2entities[str(movie_id)]
-                        review_entities = [int(x) for x in review_entities]
-                        review_entities = [self.entityid2entity[x] for x in review_entities]
-                        movie_entities = []
-
-                        for entity in review_entities:
-                            if entity in self.entity2id:
-                                review_movie_rec.append(self.entity2id[entity])
-                                
-                        for m in review_movie_rec:
-                            if m in movies:
-                                movie_rec.append(m)
-                except:
-                    pass
-        
         movie_rec_trans = []
-        for movie in set(movie_rec):
+        for movie in movie_rec:
+            entity = self.id2entity[int(movie)]
             try:
-                entity = self.id2entity[str(movie)]
                 movie_rec_trans.append(self.entity2entityId[entity])
             except:
                 pass
@@ -567,6 +539,7 @@ class dataset(object):
             self.corpus.append(context_dict["text"])
             if context_dict["user"] == re_id and len(contexts) > 0:
                 response = context_dict["text"]
+
                 # entity_vec=np.zeros(self.entity_num)
                 # for en in list(entities):
                 #    entity_vec[en]=1
@@ -613,9 +586,7 @@ class CRSdataset(Dataset):
         self.data = dataset
         self.entity_num = entity_num
         self.concept_num = concept_num + 1
-        self.entity_max = 40000
-        self.word_item_offset = 40000
-        self.max_neighbors = 10
+        self.word_num = 23929
 
     def __getitem__(self, index):
         """
@@ -638,31 +609,26 @@ class CRSdataset(Dataset):
             dbpedia_mask,
             rec,
             key_words,
-            movies,
+            movies
         ) = self.data[index]
         entity_vec = np.zeros(self.entity_num)
         entity_vector = np.zeros(200, dtype=np.int)
         point = 0
-        
         for en in entity:
             entity_vec[en] = 1
             entity_vector[point] = en
             point += 1
 
-        concept_vec = np.zeros(self.concept_num + self.word_item_offset)
-        for con in concept_mask:
-            if con != 40000:
-                concept_vec[con] = 1
-        
+        concept_vec = np.zeros(self.word_num)
         for con in key_words:
             if con != 0:
                 concept_vec[con] = 1
 
         db_vec = np.zeros(self.entity_num)
-        for db in entity:
-            if db!=0:
-                db_vec[db]=1
-        
+        for db in movies:
+            if db != 0 + 64368:
+                db_vec[db] = 1
+
         return (
             context,
             c_lengths,
