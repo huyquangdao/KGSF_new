@@ -1,4 +1,4 @@
-%%writefile run.py
+
 #!/usr/bin/env python3
 
 # Copyright (c) Facebook, Inc. and its affiliates.
@@ -34,8 +34,8 @@ import signal
 import json
 import argparse
 import pickle as pkl
-from dataset import dataset, CRSdataset
-from model import CrossModel
+from dataset_copy_concept_item import dataset, CRSdataset
+from model_copy_concept_item import CrossModel
 import torch.nn as nn
 from torch import optim
 import torch
@@ -319,10 +319,9 @@ class TrainLoop_fusion_rec:
         losses = []
         iterations = 0
         for i in range(self.epoch):
-            
             neg_edge_index = negative_sampling(
                     edge_index=self.model.word_item_edge_sets, num_nodes=90000,
-                    num_neg_samples = 5 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
+                    num_neg_samples = 30 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
                         
             self.model.neg_edge_index = neg_edge_index
             
@@ -388,7 +387,7 @@ class TrainLoop_fusion_rec:
                     None,
                     None,
                     test=False,
-                    pretrain = False
+                    pretrain = True
                 )
 
                 joint_loss = (
@@ -743,11 +742,6 @@ class TrainLoop_fusion_gen:
         best_val_gen = 1000
         gen_stop = False
         for i in range(self.epoch * 3):
-            
-            neg_edge_index = negative_sampling(
-                    edge_index=self.model.word_item_edge_sets, num_nodes=90000,
-                    num_neg_samples = 5 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
-         
             self.model.neg_edge_index = neg_edge_index
 
             train_set = CRSdataset(
@@ -805,6 +799,7 @@ class TrainLoop_fusion_gen:
                     entity_vector.cuda(),
                     rec,
                     test=False,
+                    pretrain = False
                 )
 
                 joint_loss = gen_loss + mask_loss * 0
@@ -867,9 +862,6 @@ class TrainLoop_fusion_gen:
         val_dataset_loader = torch.utils.data.DataLoader(
             dataset=val_set, batch_size=self.batch_size, shuffle=False
         )
-        neg_edge_index = negative_sampling(
-                    edge_index=self.model.word_item_edge_sets, num_nodes=90000,
-                    num_neg_samples = 5 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
                         
         self.model.neg_edge_index = neg_edge_index
         inference_sum = []
@@ -920,7 +912,8 @@ class TrainLoop_fusion_gen:
                     db_vec,
                     entity_vector.cuda(),
                     rec,
-                    test=False
+                    test=False,
+                    pretrain = False
                 )
                 (
                     scores,

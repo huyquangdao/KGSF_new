@@ -1,4 +1,4 @@
-%%writefile model.py
+
 from models.transformer import (
     TorchGeneratorModel,
     _build_encoder,
@@ -687,20 +687,24 @@ class CrossModel(nn.Module):
         # m_emb=db_nodes_features[labels.cuda()]
         # mask_mask=concept_mask!=self.concept_padding
         mask_loss = 0  # self.mask_predict_loss(m_emb, attention, xs, mask_mask.cuda(),rec.float())
-                edge_label_index = torch.cat(
-                [current_word_item_edge_sets, self.neg_edge_index],
-                dim=-1,
-            )
-        edge_label = torch.cat([
-                torch.ones(current_word_item_edge_sets.size(1)),
-                torch.zeros(self.neg_edge_index.size(1))
-            ], dim=0)
-        out = (word_item_features[edge_label_index[0]] * word_item_features[edge_label_index[1]]).sum(dim=-1).view(-1)
+        
+        if pretrain:
+            edge_label_index = torch.cat(
+                    [current_word_item_edge_sets, self.neg_edge_index],
+                    dim=-1,
+                )
+            edge_label = torch.cat([
+                    torch.ones(current_word_item_edge_sets.size(1)),
+                    torch.zeros(self.neg_edge_index.size(1))
+                ], dim=0)
+            out = (word_item_features[edge_label_index[0]] * word_item_features[edge_label_index[1]]).sum(dim=-1).view(-1)
 
-        info_db_loss = self.link_criterion(out, edge_label.cuda())
-        info_con_loss = 0
-        # info_db_loss = 0
-
+            info_db_loss = self.link_criterion(out, edge_label.cuda())
+            info_con_loss = 0
+            # info_db_loss = 0
+        else:
+            info_con_loss = 0
+            info_db_loss = 0
 #         info_db_loss= 0
         # entity_scores = F.softmax(entity_scores.cuda(), dim=-1).cuda()
 
