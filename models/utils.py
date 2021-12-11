@@ -35,6 +35,8 @@ def _create_embeddings(dictionary, embedding_size, padding_idx):
     """Create and initialize word embeddings."""
     # e=nn.Embedding.from_pretrained(data, freeze=False, padding_idx=0).double()
     e = nn.Embedding(len(dictionary) + 4, embedding_size, padding_idx)
+    print(e.weight.shape)
+    print(torch.from_numpy(np.load("word2vec_redial.npy")).shape)
     e.weight.data.copy_(torch.from_numpy(np.load("word2vec_redial.npy")))
     # nn.init.normal_(e.weight, mean=0, std=embedding_size ** -0.5)
     # e.weight=data
@@ -48,3 +50,5 @@ def _create_entity_embeddings(entity_num, embedding_size, padding_idx):
     nn.init.normal_(e.weight, mean=0, std=embedding_size ** -0.5)
     nn.init.constant_(e.weight[padding_idx], 0)
     return e
+
+
