@@ -72,6 +72,7 @@ def compute_edge_type_aware_attn(query, key, value, weight_matrix, mask=None):
 
 EDGE_TYPES = [58, 172]
 
+
 def _edge_list(kg, n_entity, hop):
     edge_list = []
     for h in range(hop):
@@ -79,12 +80,12 @@ def _edge_list(kg, n_entity, hop):
             # add self loop
             # edge_list.append((entity, entity))
             # self_loop id = 185
-            edge_list.append((entity, entity, 23))
+            edge_list.append((entity, entity, 185))
             if entity not in kg:
                 continue
             for tail_and_relation in kg[entity]:
                 if (
-                    entity != tail_and_relation[1] and tail_and_relation[0] != 23
+                    entity != tail_and_relation[1] and tail_and_relation[0] != 185
                 ):  # and tail_and_relation[0] in EDGE_TYPES:
                     edge_list.append(
                         (entity, tail_and_relation[1], tail_and_relation[0])
@@ -92,18 +93,17 @@ def _edge_list(kg, n_entity, hop):
                     edge_list.append(
                         (tail_and_relation[1], entity, tail_and_relation[0])
                     )
-    
-    print(len(edge_list))
+
     relation_cnt = defaultdict(int)
     relation_idx = {}
     for h, t, r in edge_list:
         relation_cnt[r] += 1
     for h, t, r in edge_list:
-        if relation_cnt[r] > 10 and r not in relation_idx:
+        if relation_cnt[r] > 1000 and r not in relation_idx:
             relation_idx[r] = len(relation_idx)
 
     return [
-        (h, t, relation_idx[r]) for h, t, r in edge_list if relation_cnt[r] > 10
+        (h, t, relation_idx[r]) for h, t, r in edge_list if relation_cnt[r] > 1000
     ], len(relation_idx)
 
 
@@ -147,17 +147,6 @@ def concept_edge_list4GCN():
     edge_set = [[co[0] for co in list(edges)], [co[1] for co in list(edges)]]
     return torch.LongTensor(edge_set).cuda()
 
-
-def compute_context_aware_entities_representation(context_query, user_representations, weight_matrix):
-    #context_query = [self.dim]
-    #user_representation = list(self.dim)
-    #weight_vector = [2 * self.dim]
-    proj_representation = torch.tanh(weight_matrix(user_representations))
-    # proj_representation = [n_entity, self.dim]
-    attention_weight = torch.matmul(weight_matrix(context_query).unsqueeze(0), proj_representation.permute(1,0))
-    #attention_weight = [1, n_entity]
-    attention_representation = torch.matmul(attention_weight, user_representations).squeeze(0)
-    return attention_representation
 
 class CrossModel(nn.Module):
     def __init__(
