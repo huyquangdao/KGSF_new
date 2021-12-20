@@ -956,11 +956,11 @@ class TrainLoop_fusion_gen:
                 output_dict_gen[key] = self.metrics_gen[key]
         print(output_dict_gen)
 
-        f = open("context_test.txt", "w", encoding="utf-8")
+        f = open("wo_concept_item_context_test.txt", "w", encoding="utf-8")
         f.writelines([" ".join(sen) + "\n" for sen in context_sum])
         f.close()
 
-        f = open("output_test.txt", "w", encoding="utf-8")
+        f = open("wo_concept_item_output_test.txt", "w", encoding="utf-8")
         f.writelines([" ".join(sen) + "\n" for sen in inference_sum])
         f.close()
         return output_dict_gen

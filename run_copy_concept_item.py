@@ -817,7 +817,7 @@ class TrainLoop_fusion_gen:
                     losses = []
                 num += 1
 
-            output_metrics_gen = self.val(True)
+            output_metrics_gen = self.val(False)
             if best_val_gen < output_metrics_gen["dist4"]:
                 pass
             else:
@@ -959,11 +959,11 @@ class TrainLoop_fusion_gen:
                 output_dict_gen[key] = self.metrics_gen[key]
         print(output_dict_gen)
 
-        f = open("context_test.txt", "w", encoding="utf-8")
+        f = open("concept_item_context_test.txt", "w", encoding="utf-8")
         f.writelines([" ".join(sen) + "\n" for sen in context_sum])
         f.close()
 
-        f = open("output_test.txt", "w", encoding="utf-8")
+        f = open("concept_item_output_test.txt", "w", encoding="utf-8")
         f.writelines([" ".join(sen) + "\n" for sen in inference_sum])
         f.close()
         return output_dict_gen
