@@ -204,7 +204,8 @@ class CrossModel(nn.Module):
         )
         
         self.concept_padding = 0
-        self.kg = pkl.load(open("generated_data/final_2_hop_subkg.pkl", "rb"))
+        self.kg = pkl.load(open("data/subkg.pkl", "rb"))
+
         self.proj_self_attn = SelfAttentionLayer_batch(2 * opt["dim"],  2 * opt["dim"])
         
         if opt.get("n_positions"):
@@ -313,7 +314,6 @@ class CrossModel(nn.Module):
         
         print(self.word_item_edge_sets.shape[1])
                 
-        self.GAT_1 = GATConv(self.dim, self.dim)
         self.GCN_1 = GCNConv(self.dim, self.dim)
         self.GCN_2 = GCNConv(self.dim, self.dim)
         
@@ -638,7 +638,7 @@ class CrossModel(nn.Module):
         # w_word_embedding = word_item_features[self.opt['n_entity']:]
         # word_features = torch.cat([con_nodes_features, w_word_embedding], dim =-1)
         
-        concept_mask = concept_mask - 40000
+        concept_mask = concept_mask - 64368
         con_emb_mask = concept_mask == 0
         graph_con_emb = con_nodes_features[concept_mask]
         con_user_emb, _ = self.self_attn(graph_con_emb, con_emb_mask.cuda())
