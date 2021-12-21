@@ -283,7 +283,7 @@ class CrossModel(nn.Module):
         self.non_relational_edge_set = torch.LongTensor(non_relational_edge_set).cuda()
         
         #word_item_edge_list
-        self.word_item_kg = json.load(open('processed_word_item_edge_list.json','r'))
+        self.word_item_kg = json.load(open('generated_data/processed_word_item_edge_list.json','r'))
         self.word_item_edge_sets = _edge_list_word_item(self.word_item_kg, opt["n_entity"], hop = 1)
         
         self.word_item_edge_sets = [[co[0] for co in list(self.word_item_edge_sets)], [co[1] for co in list(self.word_item_edge_sets)]]

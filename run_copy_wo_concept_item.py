@@ -318,10 +318,9 @@ class TrainLoop_fusion_rec:
         for i in range(self.epoch):
             neg_edge_index = negative_sampling(
                     edge_index=self.model.word_item_edge_sets, num_nodes=90000,
-                    num_neg_samples = 30 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
+                    num_neg_samples = 5 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
                         
             self.model.neg_edge_index = neg_edge_index
-            
             train_set = CRSdataset(
                 self.train_dataset.data_process(),
                 self.opt["n_entity"],
@@ -739,7 +738,6 @@ class TrainLoop_fusion_gen:
         best_val_gen = 1000
         gen_stop = False
         for i in range(self.epoch * 3):
-            self.model.neg_edge_index = neg_edge_index
 
             train_set = CRSdataset(
                 self.train_dataset.data_process(True),
@@ -814,7 +812,7 @@ class TrainLoop_fusion_gen:
                     losses = []
                 num += 1
 
-            output_metrics_gen = self.val(True)
+            output_metrics_gen = self.val(False)
             if best_val_gen < output_metrics_gen["dist4"]:
                 pass
             else:
@@ -859,8 +857,8 @@ class TrainLoop_fusion_gen:
         val_dataset_loader = torch.utils.data.DataLoader(
             dataset=val_set, batch_size=self.batch_size, shuffle=False
         )
+        
                         
-        self.model.neg_edge_index = neg_edge_index
         inference_sum = []
         golden_sum = []
         context_sum = []
@@ -956,11 +954,11 @@ class TrainLoop_fusion_gen:
                 output_dict_gen[key] = self.metrics_gen[key]
         print(output_dict_gen)
 
-        f = open("wo_concept_item_context_test.txt", "w", encoding="utf-8")
+        f = open("concept_item_context_test.txt", "w", encoding="utf-8")
         f.writelines([" ".join(sen) + "\n" for sen in context_sum])
         f.close()
 
-        f = open("wo_concept_item_output_test.txt", "w", encoding="utf-8")
+        f = open("concept_item_output_test.txt", "w", encoding="utf-8")
         f.writelines([" ".join(sen) + "\n" for sen in inference_sum])
         f.close()
         return output_dict_gen
