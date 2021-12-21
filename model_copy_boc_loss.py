@@ -1,4 +1,3 @@
-
 from models.transformer import (
     TorchGeneratorModel,
     _build_encoder,
@@ -196,6 +195,7 @@ class CrossModel(nn.Module):
         )
         
         self.concept_padding = 0
+
         self.kg = pkl.load(open("data/subkg.pkl", "rb"))
 
         if opt.get("n_positions"):
@@ -235,12 +235,13 @@ class CrossModel(nn.Module):
 
         self.db_attn_norm = nn.Linear(2 * opt["dim"], opt["embedding_size"])
         self.kg_attn_norm = nn.Linear(2 * opt["dim"], opt["embedding_size"])
-        
+
         self.criterion = nn.CrossEntropyLoss(reduce=False)
-        self.self_attn = SelfAttentionLayer_batch(2 * opt["dim"], 2* opt["dim"])
+
+        self.self_attn = SelfAttentionLayer_batch(2 * opt["dim"], 2 * opt["dim"])
         self.proj_self_attn = SelfAttentionLayer_batch(opt["dim"], opt["dim"])
 
-        self.self_attn_db = SelfAttentionLayer(2 * opt["dim"],2 * opt["dim"])
+        self.self_attn_db = SelfAttentionLayer(2  * opt["dim"], 2 * opt["dim"])
         self.self_attn_con = SelfAttentionLayer(2 * opt["dim"], 2 * opt["dim"])
         
         self.self_attn_con_edge = SelfAttentionLayer(opt["dim"], opt["dim"])
@@ -258,6 +259,7 @@ class CrossModel(nn.Module):
         self.info_db_norm = nn.Linear(opt["dim"], opt["dim"])
         self.info_output_db = nn.Linear(opt["dim"], opt["n_entity"])
         self.info_output_con = nn.Linear(opt["dim"], opt["n_concept"] + 1)
+        
         self.info_con_loss = nn.MSELoss(size_average=False, reduce=False)
         self.info_db_loss = nn.MSELoss(size_average=False, reduce=False)
 
@@ -295,12 +297,12 @@ class CrossModel(nn.Module):
 #         self.word_item_edge_sets = torch.LongTensor(word_item_edge_list).cuda()
 #         self.word_item_edge_idx = self.word_item_edge_sets[:, :2].t()
 #         self.word_item_edge_type = self.word_item_edge_sets[:, 2]
+
+        self.boc_criterion = nn.BCEWithLogitsLoss(size_average=False, reduce=False)
               
         self.GAT_1 = GATConv(self.dim, self.dim)
         self.GCN_1 = GCNConv(self.dim, self.dim)
         self.GCN_2 = GCNConv(self.dim, self.dim)
-        
-        self.w_common = nn.Linear(self.dim, self.dim)
         
         self.dbpedia_RGCN = RGCNConv(
             opt['n_entity'], self.dim, self.n_relation, num_bases=opt["num_bases"]
@@ -312,16 +314,12 @@ class CrossModel(nn.Module):
         self.temp_edge_sets = self.concept_edge_sets.clone() + opt['n_entity']
 #         self.word_item_edge_sets = torch.cat([self.word_item_edge_sets, self.temp_edge_sets ], dim = -1)
         # self.concept_GCN4gen=GCNConv(self.dim, opt['embedding_size'])
-
+        
+        self.w_align = nn.Linear(opt["embedding_size"], 2 * opt["dim"])
+    
         self.opt = opt
-        self.w_proj = nn.Linear(2 * self.dim, 1)
-        self.e_proj = nn.Linear(self.dim, self.dim)
-        
         self.link_prediction_loss = nn.BCEWithLogitsLoss(size_average=False, reduce=False)
-        
         self.en_self_attn = SelfAttentionLayer_batch(opt["dim"], opt["dim"])
-        
-        self.boc_criterion = nn.BCEWithLogitsLoss()
         
         w2i = json.load(open("word2index_redial.json", encoding="utf-8"))
         self.i2w = {w2i[word]: word for word in w2i}
@@ -505,19 +503,21 @@ class CrossModel(nn.Module):
         )
 
         # logits = self.output(latent)
-        con_logits = self.representation_bias(copy_latent) * self.mask4.unsqueeze(
-            0
-        ).unsqueeze(
-            0
-        )  # F.linear(copy_latent, self.embeddings.weight)
+        con_logits = self.representation_bias(copy_latent) 
+                
+        # F.linear(copy_latent, self.embeddings.weight)
         logits = F.linear(latent, self.embeddings.weight)
         # print(logits.size())
         # print(mem_logits.size())
         # gate=F.sigmoid(self.gen_gate_norm(latent))
 
-        sum_logits = logits + con_logits  # *(1-gate)
+        sum_logits = logits + con_logits  * self.mask4.unsqueeze(
+            0
+        ).unsqueeze(
+            0
+        )# *(1-gate)
         _, preds = sum_logits.max(dim=2)
-        return logits, con_logits, preds
+        return logits, copy_latent, preds
 
     def infomax_loss(
         self,
@@ -636,6 +636,7 @@ class CrossModel(nn.Module):
         con_nodes_features = self.concept_GCN(
             self.concept_embeddings.weight, self.concept_edge_sets
         )
+        
         #concat kgs
         ##removing word_item_edges_pairs, there are some problems with this line
         if pretrain == True:
@@ -648,9 +649,9 @@ class CrossModel(nn.Module):
         word_item_features = F.leaky_relu(self.GCN_2(word_item_features, current_word_item_edge_sets))
 
         w_item_embedding = word_item_features[:self.opt['n_entity']]
-        entities_features  = torch.cat([db_nodes_features, w_item_embedding], dim =-1)
+        entities_features = torch.cat([db_nodes_features, w_item_embedding], dim =-1)
 
-        w_word_embedding = word_item_features[self.opt['n_entity']: self.opt['n_entity'] + self.opt['n_concept'] + 1]
+        w_word_embedding = word_item_features[self.opt['n_entity']:]
         word_features = torch.cat([con_nodes_features, w_word_embedding ], dim =-1)
         
         proj_user_representation_list = []
@@ -688,7 +689,7 @@ class CrossModel(nn.Module):
         # mask_mask=concept_mask!=self.concept_padding
         mask_loss = 0  # self.mask_predict_loss(m_emb, attention, xs, mask_mask.cuda(),rec.float())
         
-        if pretrain:
+        if pretrain == True:
             edge_label_index = torch.cat(
                     [current_word_item_edge_sets, self.neg_edge_index],
                     dim=-1,
@@ -697,17 +698,15 @@ class CrossModel(nn.Module):
                     torch.ones(current_word_item_edge_sets.size(1)),
                     torch.zeros(self.neg_edge_index.size(1))
                 ], dim=0)
+                
             out = (word_item_features[edge_label_index[0]] * word_item_features[edge_label_index[1]]).sum(dim=-1).view(-1)
-
             info_db_loss = self.link_criterion(out, edge_label.cuda())
             info_con_loss = 0
-            # info_db_loss = 0
-        else:
-            info_con_loss = 0
+        else: 
             info_db_loss = 0
-#         info_db_loss= 0
+            info_con_loss = 0
+            
         # entity_scores = F.softmax(entity_scores.cuda(), dim=-1).cuda()
-
         rec_loss = self.criterion(
             entity_scores.squeeze(1).squeeze(1).float(), labels.cuda()
         )
@@ -721,14 +720,16 @@ class CrossModel(nn.Module):
         con_mask4gen = concept_mask != self.concept_padding
         # kg_encoding=self.kg_encoder(con_emb4gen.cuda(),con_mask4gen.cuda())
         kg_encoding = (self.kg_norm(con_emb4gen), con_mask4gen.cuda())
+
         db_emb4gen = entities_features[entity_vector]  # batch*50*dim
         db_mask4gen = entity_vector != 0
         # db_encoding=self.db_encoder(db_emb4gen.cuda(),db_mask4gen.cuda())
         db_encoding = (self.db_norm(db_emb4gen), db_mask4gen.cuda())
-        
-        if not test:
+        movie_mask = torch.sum(db_label, dim =-1)
+
+        if test == False:
             # use teacher forcing
-            scores, con_logits, preds = self.decode_forced(
+            scores, copy_latent, preds = self.decode_forced(
                 encoder_states,
                 kg_encoding,
                 db_encoding,
@@ -737,7 +738,7 @@ class CrossModel(nn.Module):
                 mask_ys,
             )
             gen_loss = torch.mean(self.compute_loss(scores, mask_ys))
-#             boc_loss = self.compute_boc_loss(con_logits, con_label)
+            boc_loss = self.compute_boc_loss(con_label, copy_latent, word_features, movie_mask)
 
         else:
             scores, preds = self.decode_greedy(
@@ -750,7 +751,7 @@ class CrossModel(nn.Module):
                 maxlen or self.longest_label,
             )
             gen_loss = None
-#             boc_loss = None
+            boc_loss = None
 
         return (
             scores,
@@ -758,7 +759,7 @@ class CrossModel(nn.Module):
             entity_scores,
             rec_loss,
             gen_loss,
-            0,
+            boc_loss,
             info_db_loss,
             info_con_loss,
         )
@@ -854,23 +855,24 @@ class CrossModel(nn.Module):
         output_view = output.view(-1, output.size(-1))
         loss = self.criterion(output_view.cuda(), score_view.cuda())
         return loss
-    
-    def compute_boc_loss(self, con_logits, boc_label):
-        # con_logits = [bs,seq, V]
-        # boc_label = [bs, V]
-        sentence_level_score = torch.sum(con_logits, dim =1)
-        #boc_label = [bs, 29929]
-        #sentence_level_score = [bs, V]
-        boc_loss = self.boc_criterion(sentence_level_score, boc_label.cuda()) * self.mask4key.unsqueeze(1) 
-        boc_loss = torch.mean(boc_loss)
-        return boc_loss
-        
-        
+
+    def compute_boc_loss(self, concept_label, copy_latent, word_features, movie_mask):
+        # scores = [bs, seq_length, dim]
+        copy_latent = copy_latent.sum(dim=1)
+        #scores = [bs, word_dim]
+        copy_scores = self.w_align(copy_latent)
+        #copy_scores = [bs, dim]
+        scores = torch.matmul(copy_scores, word_features.permute(1,0))
+        # scores = [bs,n_concept]
+        loss = self.boc_criterion(scores.float().cuda(), concept_label.float().cuda()) * movie_mask.unsqueeze(1).cuda()
+        loss = torch.mean(loss)
+        return loss
+
     def save_model(self):
-        torch.save(self.state_dict(), "saved_model/net_parameter1.pkl")
+        torch.save(self.state_dict(), "saved_model/boc_net_parameter1.pkl")
 
     def load_model(self):
-        self.load_state_dict(torch.load("saved_model/net_parameter1.pkl"))
+        self.load_state_dict(torch.load("saved_model/boc_net_parameter1.pkl"))
 
     def output(self, tensor):
         # project back to vocabulary
