@@ -737,6 +737,13 @@ class TrainLoop_fusion_gen:
         losses = []
         best_val_gen = 1000
         gen_stop = False
+
+        neg_edge_index = negative_sampling(
+                edge_index=self.model.word_item_edge_sets, num_nodes=90000,
+                num_neg_samples = 10 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
+    
+        self.model.neg_edge_index = neg_edge_index
+
         for i in range(self.epoch * 3):
 
             train_set = CRSdataset(
