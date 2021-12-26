@@ -316,11 +316,12 @@ class TrainLoop_fusion_rec:
         losses = []
         iterations = 0
         for i in range(self.epoch):
-            neg_edge_index = negative_sampling(
-                    edge_index=self.model.word_item_edge_sets, num_nodes=90000,
-                    num_neg_samples = 5 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
+            # neg_edge_index = negative_sampling(
+            #         edge_index=self.model.word_item_edge_sets, num_nodes=90000,
+            #         num_neg_samples = 5 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
                         
-            self.model.neg_edge_index = neg_edge_index
+            # self.model.neg_edge_index = neg_edge_index
+
             train_set = CRSdataset(
                 self.train_dataset.data_process(),
                 self.opt["n_entity"],
@@ -655,7 +656,6 @@ class TrainLoop_fusion_rec:
             )
 
         self.optimizer.step()
-        self.lr_scheduler.step()
 
     def zero_grad(self):
         """

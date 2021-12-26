@@ -315,7 +315,7 @@ class CrossModel(nn.Module):
 #         self.word_item_edge_sets = torch.cat([self.word_item_edge_sets, self.temp_edge_sets ], dim = -1)
         # self.concept_GCN4gen=GCNConv(self.dim, opt['embedding_size'])
         
-        self.w_align = nn.Linear(opt["embedding_size"], 2 * opt["dim"])
+        self.w_align = nn.Linear(4 * opt['dim'], 2 * opt["dim"])
     
         self.opt = opt
         self.link_prediction_loss = nn.BCEWithLogitsLoss(size_average=False, reduce=False)
@@ -729,6 +729,7 @@ class CrossModel(nn.Module):
 
         if test == False:
             # use teacher forcing
+            temp = torch.cat([con_user_emb, proj_db_user_emb], dim =-1)
             scores, copy_latent, preds = self.decode_forced(
                 encoder_states,
                 kg_encoding,
@@ -738,7 +739,7 @@ class CrossModel(nn.Module):
                 mask_ys,
             )
             gen_loss = torch.mean(self.compute_loss(scores, mask_ys))
-            boc_loss = self.compute_boc_loss(con_label, copy_latent, word_features, movie_mask)
+            boc_loss = self.compute_boc_loss(con_label, temp, word_features, movie_mask)
 
         else:
             scores, preds = self.decode_greedy(
@@ -858,13 +859,12 @@ class CrossModel(nn.Module):
 
     def compute_boc_loss(self, concept_label, copy_latent, word_features, movie_mask):
         # scores = [bs, seq_length, dim]
-        copy_latent = copy_latent.sum(dim=1)
         #scores = [bs, word_dim]
         copy_scores = self.w_align(copy_latent)
         #copy_scores = [bs, dim]
         scores = torch.matmul(copy_scores, word_features.permute(1,0))
         # scores = [bs,n_concept]
-        loss = self.boc_criterion(scores.float().cuda(), concept_label.float().cuda()) * movie_mask.unsqueeze(1).cuda()
+        loss = self.boc_criterion(scores.float().cuda(), concept_label.float().cuda()) * movie_mask.cuda()
         loss = torch.mean(loss)
         return loss
 
