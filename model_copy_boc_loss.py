@@ -517,7 +517,7 @@ class CrossModel(nn.Module):
             0
         )# *(1-gate)
         _, preds = sum_logits.max(dim=2)
-        return logits, copy_latent, preds
+        return logits, con_logits, preds
 
     def infomax_loss(
         self,
@@ -857,14 +857,16 @@ class CrossModel(nn.Module):
         loss = self.criterion(output_view.cuda(), score_view.cuda())
         return loss
 
-    def compute_boc_loss(self, concept_label, copy_latent, word_features, movie_mask):
-        # scores = [bs, seq_length, dim]
-        #scores = [bs, word_dim]
-        copy_scores = self.w_align(copy_latent)
+    def compute_bow_loss(self, concept_label, con_logits, word_features, movie_mask):
+        # scores = [bs, seq_length, V]
+        scores = torch.sigmoid(torch.sum(con_logits, dim =1))
+        #scores = [bs, |V|]
+        # copy_scores = self.w_align(copy_latent)
         #copy_scores = [bs, dim]
-        scores = torch.matmul(copy_scores, word_features.permute(1,0))
+        # scores = torch.matmul(copy_scores, word_features.permute(1,0))
         # scores = [bs,n_concept]
-        loss = self.boc_criterion(scores.float().cuda(), concept_label.float().cuda()) * movie_mask.cuda()
+        loss = self.boc_criterion(scores.float().cuda(), concept_label.float().cuda()) * self.mask4key.unsqueeze(0)
+        loss = loss * movie_mask.cuda()
         loss = torch.mean(loss)
         return loss
 
