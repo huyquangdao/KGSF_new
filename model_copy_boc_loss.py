@@ -729,7 +729,6 @@ class CrossModel(nn.Module):
 
         if test == False:
             # use teacher forcing
-            temp = torch.cat([con_user_emb, proj_db_user_emb], dim =-1)
             scores, copy_latent, preds = self.decode_forced(
                 encoder_states,
                 kg_encoding,
@@ -739,7 +738,7 @@ class CrossModel(nn.Module):
                 mask_ys,
             )
             gen_loss = torch.mean(self.compute_loss(scores, mask_ys))
-            boc_loss = self.compute_boc_loss(con_label, temp, word_features, movie_mask)
+            boc_loss = self.compute_bow_loss(con_label, copy_latent, word_features, movie_mask)
 
         else:
             scores, preds = self.decode_greedy(
@@ -866,7 +865,7 @@ class CrossModel(nn.Module):
         # scores = torch.matmul(copy_scores, word_features.permute(1,0))
         # scores = [bs,n_concept]
         loss = self.boc_criterion(scores.float().cuda(), concept_label.float().cuda()) * self.mask4key.unsqueeze(0)
-        loss = loss * movie_mask.cuda()
+        loss = loss * movie_mask.unsqueeze(1).cuda()
         loss = torch.mean(loss)
         return loss
 

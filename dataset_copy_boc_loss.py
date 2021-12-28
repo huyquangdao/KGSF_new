@@ -362,12 +362,12 @@ class dataset(object):
                     all_key_words.extend([])
             
             #convert words to indexes
-            all_key_words = [self.key2index[x] for x in all_key_words]
+#             all_key_words = [self.key2index[x] for x in all_key_words]
 #             all_key_words = list(set(all_key_words))
 #             temp_movies = [self.entityid2entity[x] for x in movies]
 #             temp_movies = ["@" + str(self.entity2id[x]) for x in temp_movies]
 #             all_key_words = all_key_words + temp_movies       
-#             all_key_words = [self.word2index[x] if x in self.word2index else self.word2index.get(x.title(),0) for x in all_key_words]
+            all_key_words = [self.word2index[x] if x in self.word2index else self.word2index.get(x.title(),0) for x in all_key_words]
             #neighborhood intercoporation
             
             neighbors = []
@@ -609,7 +609,7 @@ class CRSdataset(Dataset):
             entity_vector[point] = en
             point += 1
 
-        concept_vec = np.zeros(self.concept_num)
+        concept_vec = np.zeros(self.word_num)
         for con in key_words:
             if con != 0:
                 concept_vec[con] = 1
