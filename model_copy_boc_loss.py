@@ -253,8 +253,13 @@ class CrossModel(nn.Module):
         self.copy_norm = nn.Linear(
             opt["embedding_size"] * 2 + opt["embedding_size"], opt["embedding_size"]
         )
-        self.representation_bias = nn.Linear(opt["embedding_size"], len(dictionary) + 4)
 
+        self.copy_norm_1_hop = nn.Linear(
+            opt["embedding_size"] * 2 + opt["embedding_size"], opt["embedding_size"]
+        )
+        self.representation_bias_1_hop = nn.Linear(opt["embedding_size"], len(dictionary) + 4)
+
+        self.representation_bias = nn.Linear(opt["embedding_size"], len(dictionary) + 4)
         self.info_con_norm = nn.Linear(opt["dim"], opt["dim"])
         self.info_db_norm = nn.Linear(opt["dim"], opt["dim"])
         self.info_output_db = nn.Linear(opt["dim"], opt["n_entity"])
@@ -401,18 +406,31 @@ class CrossModel(nn.Module):
                 )
             )
 
+            copy_latent_1_hop = self.copy_norm_1_hop(
+                torch.cat(
+                    [kg_attn_norm.unsqueeze(1), db_attn_norm.unsqueeze(1), scores], -1
+                )
+            )
+
             # logits = self.output(latent)
             con_logits = self.representation_bias(copy_latent) * self.mask4.unsqueeze(
                 0
             ).unsqueeze(
                 0
-            )  # F.linear(copy_latent, self.embeddings.weight)
+            )  
+            con_logits_1_hop = self.representation_bias_1_hop(copy_latent) * self.mask4.unsqueeze(
+                0
+            ).unsqueeze(
+                0
+            )
+            
+            # F.linear(copy_latent, self.embeddings.weight)
             voc_logits = F.linear(scores, self.embeddings.weight)
             # print(logits.size())
             # print(mem_logits.size())
             # gate = F.sigmoid(self.gen_gate_norm(scores))
 
-            sum_logits = voc_logits + con_logits  # * (1 - gate)
+            sum_logits = voc_logits + con_logits + con_logits_1_hop # * (1 - gate)
             _, preds = sum_logits.max(dim=-1)
             # scores = F.linear(scores, self.embeddings.weight)
             # print(attention_map)
@@ -502,8 +520,20 @@ class CrossModel(nn.Module):
             )
         )
 
+        copy_latent_1_hop = self.copy_norm_1_hop(
+            torch.cat(
+                [
+                    kg_attention_latent.unsqueeze(1).repeat(1, seqlen, 1),
+                    db_attention_latent.unsqueeze(1).repeat(1, seqlen, 1),
+                    latent,
+                ],
+                -1,
+            )
+        )
+
         # logits = self.output(latent)
         con_logits = self.representation_bias(copy_latent) 
+        con_logits_1_hop = self.representation_bias_1_hop(copy_latent) 
                 
         # F.linear(copy_latent, self.embeddings.weight)
         logits = F.linear(latent, self.embeddings.weight)
@@ -511,13 +541,9 @@ class CrossModel(nn.Module):
         # print(mem_logits.size())
         # gate=F.sigmoid(self.gen_gate_norm(latent))
 
-        sum_logits = logits + con_logits  * self.mask4.unsqueeze(
-            0
-        ).unsqueeze(
-            0
-        )# *(1-gate)
+        sum_logits = logits + con_logits  * self.mask4.unsqueeze(0).unsqueeze(0) + con_logits_1_hop * self.mask4.unsqueeze(0).unsqueeze(0)
         _, preds = sum_logits.max(dim=2)
-        return logits, con_logits, preds
+        return logits, con_logits_1_hop, preds
 
     def infomax_loss(
         self,
@@ -729,7 +755,7 @@ class CrossModel(nn.Module):
 
         if test == False:
             # use teacher forcing
-            scores, copy_latent, preds = self.decode_forced(
+            scores, con_logits_1_hop, preds = self.decode_forced(
                 encoder_states,
                 kg_encoding,
                 db_encoding,
@@ -738,7 +764,7 @@ class CrossModel(nn.Module):
                 mask_ys,
             )
             gen_loss = torch.mean(self.compute_loss(scores, mask_ys))
-            boc_loss = self.compute_bow_loss(con_label, copy_latent, word_features, movie_mask)
+            boc_loss = self.compute_bow_loss(con_label, con_logits_1_hop, word_features, movie_mask)
 
         else:
             scores, preds = self.decode_greedy(
@@ -856,9 +882,9 @@ class CrossModel(nn.Module):
         loss = self.criterion(output_view.cuda(), score_view.cuda())
         return loss
 
-    def compute_bow_loss(self, concept_label, con_logits, word_features, movie_mask):
+    def compute_bow_loss(self, concept_label, con_logits_1_hop, word_features, movie_mask):
         # scores = [bs, seq_length, V]
-        scores = torch.sigmoid(torch.sum(con_logits, dim =1))
+        scores = torch.sum(con_logits_1_hop, dim =1)
         #scores = [bs, |V|]
         # copy_scores = self.w_align(copy_latent)
         #copy_scores = [bs, dim]
