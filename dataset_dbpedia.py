@@ -187,10 +187,10 @@ class dataset(object):
         #     genres = [word for word in genres if  word in self.key2index]
         #     new_word_item_graph[sample['movie_id']] = genres + new_word_item_graph[sample['movie_id']]
 
-        with open('generated_data/dbpedia_word_item_edge_list_40.json','w') as f:
+        with open('generated_data/new_dbpedia_word_item_edge_list.json','w') as f:
             json.dump(new_word_item_graph, f)
         
-        with open('generated_data/dbpedia_word_item_edge_list_40.json','r') as f:
+        with open('generated_data/new_dbpedia_word_item_edge_list.json','r') as f:
             word_item_edge_list = json.load(f)
 
         #self.co_occurance_ext(self.data)
