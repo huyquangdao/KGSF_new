@@ -621,14 +621,9 @@ class CrossModel(nn.Module):
         # mask=xs == self.pad_idx
         encoder_states = prev_enc if prev_enc is not None else self.encoder(xs)
         # graph network
-
+        
         db_nodes_features = self.db_embeddings.weight
         con_nodes_features = self.concept_embeddings.weight
-        
-        # db_nodes_features = self.dbpedia_RGCN(None, self.db_edge_idx, self.db_edge_type)
-        # con_nodes_features = self.concept_GCN(
-        #     self.concept_embeddings.weight, self.concept_edge_sets
-        # )
         #concat kgs
         ##removing word_item_edges_pairs, there are some problems with this line
         if pretrain == True:
@@ -860,10 +855,10 @@ class CrossModel(nn.Module):
         
         
     def save_model(self):
-        torch.save(self.state_dict(), "saved_model/wo_kg_parameter1.pkl")
+        torch.save(self.state_dict(), "saved_model/wo_kg_net_parameter1.pkl")
 
     def load_model(self):
-        self.load_state_dict(torch.load("saved_model/wo_kg_parameter1.pkl"))
+        self.load_state_dict(torch.load("saved_model/wo_kg_net_parameter1.pkl"))
 
     def output(self, tensor):
         # project back to vocabulary

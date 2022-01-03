@@ -119,7 +119,6 @@ class dataset(object):
             self.word_item_edge_list = json.load(f)
                                          
         self.word_item_kg = json.load(open('processed_word_item_edge_list.json'))
-                                   
         self.key_words_pool = []
         
         for sample, words in self.word_item_kg.items():
@@ -619,7 +618,7 @@ class CRSdataset(Dataset):
             entity_vector[point] = en
             point += 1
 
-        concept_vec = np.zeros(self.word_num)
+        concept_vec = np.zeros(self.concept_num)
         for con in key_words:
             if con != 0:
                 concept_vec[con] = 1
