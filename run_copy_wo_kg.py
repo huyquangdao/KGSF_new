@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 
 # Copyright (c) Facebook, Inc. and its affiliates.
@@ -38,11 +39,10 @@ from model_copy_wo_kg import CrossModel
 import torch.nn as nn
 from torch import optim
 import torch
+
 from torch_geometric.utils import negative_sampling
 
-import pickle
 import wandb
-
 import random
 
 try:
@@ -87,7 +87,6 @@ def setup_args():
     train.add_argument("-optimizer", "--optimizer", type=str, default="adam")
     train.add_argument("-momentum", "--momentum", type=float, default=0)
     train.add_argument("-is_finetune", "--is_finetune", type=bool, default=False)
-    train.add_argument("--error_analysis", "--error_analysis", type=bool, default=True)
     train.add_argument(
         "-embedding_type", "--embedding_type", type=str, default="random"
     )
@@ -116,8 +115,8 @@ def setup_args():
         "-embeddings_scale", "--embeddings_scale", type=bool, default=True
     )
 
-    train.add_argument("-n_entity", "--n_entity", type=int, default=40000)
-    train.add_argument("-n_relation", "--n_relation", type=int, default=26)
+    train.add_argument("-n_entity", "--n_entity", type=int, default=64368)
+    train.add_argument("-n_relation", "--n_relation", type=int, default=214)
     train.add_argument("-n_concept", "--n_concept", type=int, default=29308)
     train.add_argument("-n_con_relation", "--n_con_relation", type=int, default=48)
     train.add_argument("-dim", "--dim", type=int, default=128)
@@ -137,11 +136,6 @@ def setup_args():
     train.add_argument(
         "-info_loss_ratio", "--info_loss_ratio", type=float, default=0.025
     )
-    
-    train.add_argument(
-        "-num_negative", "--num_negative", type=int, default=10
-    )
-    
 
     return train
 
@@ -159,6 +153,7 @@ class TrainLoop_fusion_rec:
 
         self.log_file_name = f"logs/log_for_{opt['max_neighbors']}_neighbors.json"
         self.logs = {}
+
         self.train_MIM = self.opt["train_mim"]
 
         self.use_cuda = opt["use_cuda"]
@@ -169,7 +164,7 @@ class TrainLoop_fusion_rec:
         self.is_finetune = False
 
         self.info_loss_ratio = self.opt["info_loss_ratio"]
-        self.movie_ids = pkl.load(open("generated_data/final_movie_ids.pkl", "rb"))
+        self.movie_ids = pkl.load(open("data/movie_ids.pkl", "rb"))
         # Note: we cannot change the type of metrics ahead of time, so you
         # should correctly initialize to floats or ints here
 
@@ -223,55 +218,53 @@ class TrainLoop_fusion_rec:
         rec_stop = False
 
         if self.train_MIM:
-            print("Pretraining MIM objective ... ")
+            print("Pretraining link prediction task objective ... ")
+            num = 0
             for i in range(3):
-                #init the current edge sets for model
-#                 print('number of sample edges: ', len(set(all_sample_edges)))
-#                 self.model.current_edges = set(self.model.word_item_edge_sets)
+                num +=1
+                neg_edge_index = negative_sampling(
+                        edge_index=self.model.word_item_edge_sets, num_nodes=90000,
+                        num_neg_samples = 10 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
+                        
+                self.model.neg_edge_index = neg_edge_index
                 
                 train_set = CRSdataset(
                     self.train_dataset.data_process(),
                     self.opt["n_entity"],
                     self.opt["n_concept"],
                 )
+                
                 train_dataset_loader = torch.utils.data.DataLoader(
                     dataset=train_set, batch_size=self.batch_size, shuffle=False
                 )
-                num = 0
+
                 for (
-                    context,
-                    c_lengths,
-                    response,
-                    r_length,
-                    mask_response,
-                    mask_r_length,
-                    entity,
-                    entity_vector,
-                    movie,
-                    concept_mask,
-                    dbpedia_mask,
-                    concept_vec,
-                    db_vec,
-                    rec,
-                ) in tqdm(train_dataset_loader):
+                context,
+                c_lengths,
+                response,
+                r_length,
+                mask_response,
+                mask_r_length,
+                entity,
+                entity_vector,
+                movie,
+                concept_mask,
+                dbpedia_mask,
+                concept_vec,
+                db_vec,
+                rec,
+            ) in tqdm(train_dataset_loader):
                     seed_sets = []
                     batch_words = []
                     batch_entities = []
 #                     iterations += 1
                     batch_size = context.shape[0]
                     lookup_words = []
-                
                     for b in range(batch_size):
                         seed_set = entity[b].nonzero().view(-1).tolist()
                         words = concept_vec[b].nonzero().view(-1).tolist()
                         seed_sets.append(seed_set)
-                        batch_words.extend(words)
-                        batch_entities.extend(seed_set)
                         lookup_words.append(words)
-
-    #                 batch_entities.extend(movie.detach().cpu().numpy().tolist())
-                    word_item_pairs = [(x,y) for x in batch_words for y in batch_entities]
-                    word_item_pairs.extend([(y,x) for x in batch_words for y in batch_entities])
             
                     self.model.train()
                     self.zero_grad()
@@ -297,15 +290,16 @@ class TrainLoop_fusion_rec:
                         db_vec,
                         entity_vector.cuda(),
                         rec,
-                        word_item_pairs,
+                        None,
                         lookup_words,
                         test=False,
                     )
 
                     joint_loss = info_db_loss
+
                     losses.append([info_db_loss])
                     self.backward(joint_loss)
-                    self.update_params(pretrain = True)
+                    self.update_params()
                     if num % 50 == 0:
                         print(
                             "info db loss is %f"
@@ -314,23 +308,20 @@ class TrainLoop_fusion_rec:
                         # print('info con loss is %f'%(sum([l[1] for l in losses])/len(losses)))
                         losses = []
                     num += 1
-                    
-            self.model.save_model(name = 'pretrained_mim_model.pkl')
+
             # print("masked loss pre-trained")
-        
-        if self.train_MIM:
-            self.model.load_model(name = 'pretrained_mim_model.pkl')
 
         print("Recommendation training ......")
-#         wandb.watch(self.model)
+
         losses = []
         iterations = 0
         for i in range(self.epoch):
-            neg_edge_index = negative_sampling(
-                    edge_index=self.model.word_item_edge_sets, num_nodes=69000,
-                    num_neg_samples = self.opt['num_negative'] * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
+            # neg_edge_index = negative_sampling(
+            #         edge_index=self.model.word_item_edge_sets, num_nodes=90000,
+            #         num_neg_samples = 5 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
                         
-            self.model.neg_edge_index = neg_edge_index
+            # self.model.neg_edge_index = neg_edge_index
+
             train_set = CRSdataset(
                 self.train_dataset.data_process(),
                 self.opt["n_entity"],
@@ -359,26 +350,13 @@ class TrainLoop_fusion_rec:
                 seed_sets = []
                 batch_words = []
                 batch_entities = []
-                batch_labels = []
                 iterations += 1
                 batch_size = context.shape[0]
                 lookup_words = []
                 for b in range(batch_size):
-                    
                     seed_set = entity[b].nonzero().view(-1).tolist()
-                    words = concept_vec[b].nonzero().view(-1).tolist()
                     seed_sets.append(seed_set)
-                    batch_words.extend(words)
-                    batch_entities.extend(seed_set)
-                    lookup_words.append(words)
-                    
-                    temp = [(x,y) for x in words for y in seed_set]
-                    batch_labels.append(temp)
                 
-#                 batch_entities.extend(movie.detach().cpu().numpy().tolist())
-                word_item_pairs = [(x,y) for x in batch_words for y in batch_entities]
-                word_item_pairs.extend([(y,x) for x in batch_words for y in batch_entities])
-                    
                 self.model.train()
                 self.zero_grad()
 
@@ -403,20 +381,16 @@ class TrainLoop_fusion_rec:
                     db_vec,
                     entity_vector.cuda(),
                     rec,
-                    word_item_pairs,
-                    lookup_words,
-                    batch_labels,
+                    None,
+                    None,
                     test=False,
-                    pretrain = False
+                    pretrain = True
                 )
 
                 joint_loss = (
-                    rec_loss + self.opt['info_loss_ratio'] * info_db_loss
+                    rec_loss + self.info_loss_ratio * info_db_loss + self.info_loss_ratio * info_con_loss
                 )  # +0.0*info_con_loss#+mask_loss*0.05
                 
-#                 wandb.log({"train_rec_loss": rec_loss})
-#                 wandb.log({"train_info_loss": info_db_loss})
-
                 losses.append([rec_loss, info_db_loss])
                 self.backward(joint_loss)
                 self.update_params()
@@ -429,7 +403,6 @@ class TrainLoop_fusion_rec:
                         % (sum([l[1] for l in losses]) / len(losses))
                     )
                     losses = []
-                    
                 if iterations % 400 == 0:
                     print(f"Evaluate model on test set at {iterations} step....")
                     output_metrics_rec = self.val(is_test=True)
@@ -438,8 +411,10 @@ class TrainLoop_fusion_rec:
                         "recall@10": output_metrics_rec["recall@10"],
                         "recall@50": output_metrics_rec["recall@50"],
                     }
-                    
                 num += 1
+                
+                
+
             output_metrics_rec = self.val()
 
             if (
@@ -451,10 +426,11 @@ class TrainLoop_fusion_rec:
                 best_val_rec = (
                     output_metrics_rec["recall@50"] + output_metrics_rec["recall@1"]
                 )
-                self.model.save_model(name = 'best_recommendation_model.pkl')
+                self.model.save_model()
                 print(
                     "recommendation model saved once------------------------------------------------"
                 )
+
             if rec_stop == True:
                 break
 
@@ -462,30 +438,18 @@ class TrainLoop_fusion_rec:
 
         print("Saving logs .........")
         save_logs(self.logs, self.log_file_name)
-        # print('Saving latent vectors ......')
-        # self.save_latent_vectors()
-        self.model.save_model(name = 'wo_kg_final_recommendation_model.pkl')
+#         wandb.finish()
 
     def metrics_cal_rec(self, rec_loss, scores, labels):
         batch_size = len(labels.view(-1).tolist())
         self.metrics_rec["loss"] += rec_loss
         outputs = scores.cpu()
-        
-        #get all prediction scores of movies
-        #movie_ids is a list of indexes of movies in the entity2entityid_dict
         outputs = outputs[:, torch.LongTensor(self.movie_ids)]
-        #pred_idx = top_k indices of preidction scores
         _, pred_idx = torch.topk(outputs, k=100, dim=1)
-        
-        #for all batch
         for b in range(batch_size):
-#             if label is a pad movie, then we skip ??
             if labels[b].item() == 0:
                 continue
-            #get target movie idx by finding the label in the movie_set ids.
             target_idx = self.movie_ids.index(labels[b].item())
-#             print(f'target: {target_idx}, label:{labels[b]}, pred: {pred_idx[b][:50]}')
-            #if target idx in 
             self.metrics_rec["recall@1"] += int(target_idx in pred_idx[b][:1].tolist())
             self.metrics_rec["recall@10"] += int(
                 target_idx in pred_idx[b][:10].tolist()
@@ -529,6 +493,12 @@ class TrainLoop_fusion_rec:
             dataset=val_set, batch_size=self.batch_size, shuffle=False
         )
         recs = []
+        neg_edge_index = negative_sampling(
+                    edge_index=self.model.word_item_edge_sets, num_nodes=90000,
+                    num_neg_samples = 5 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
+                
+        self.model.neg_edge_index = neg_edge_index
+
         for (
             context,
             c_lengths,
@@ -553,14 +523,7 @@ class TrainLoop_fusion_rec:
                 batch_size = context.shape[0]
                 for b in range(batch_size):
                     seed_set = entity[b].nonzero().view(-1).tolist()
-                    words = concept_vec[b].nonzero().view(-1).tolist()
                     seed_sets.append(seed_set)
-                    batch_words.extend(words)
-                    lookup_words.append(words)
-                    batch_entities.extend(seed_set)
-
-                word_item_pairs = [(x,y) for x in batch_words for y in batch_entities]
-                word_item_pairs.extend([(y,x) for x in batch_words for y in batch_entities])
                 
                 (
                     scores,
@@ -583,20 +546,15 @@ class TrainLoop_fusion_rec:
                     db_vec,
                     entity_vector.cuda(),
                     rec,
-                    word_item_pairs,
-                    lookup_words,
+                    None,
+                    None,
                     test=True,
                     maxlen=20,
                     bsz=batch_size,
                     pretrain = False
                 )
                 
-#             wandb.log({"test_rec_loss": rec_loss})
-#             wandb.log({"test_info_loss": info_db_loss})
-
             recs.extend(rec.cpu())
-            # print(losses)
-            # exit()
             self.metrics_cal_rec(rec_loss, rec_scores, movie)
 
         output_dict_rec = {
@@ -604,131 +562,7 @@ class TrainLoop_fusion_rec:
             for key in self.metrics_rec
         }
         print(output_dict_rec)
-
         return output_dict_rec
-    
-    def error_analysis(self, is_test=True):
-        
-        print('load model ........')
-        self.model.load_model(name = 'recommendation_model.pkl')
-        
-        if is_test:
-            val_dataset = dataset("data/test_data.jsonl", self.opt)
-        else:
-            val_dataset = dataset("data/valid_data.jsonl", self.opt)
-        val_set = CRSdataset(
-            val_dataset.data_process(), self.opt["n_entity"], self.opt["n_concept"]
-        )
-        val_dataset_loader = torch.utils.data.DataLoader(
-            dataset=val_set, batch_size=self.batch_size, shuffle=False
-        )
-        recs = []
-        
-        results = []
-        for (
-            context,
-            c_lengths,
-            response,
-            r_length,
-            mask_response,
-            mask_r_length,
-            entity,
-            entity_vector,
-            movie,
-            concept_mask,
-            dbpedia_mask,
-            concept_vec,
-            db_vec,
-            one_hop_vec,
-            two_hop_vec,
-            rec,
-        ) in tqdm(val_dataset_loader):
-            with torch.no_grad():
-                seed_sets = []
-                batch_words = []
-                batch_entities = []
-                lookup_words = []
-                batch_size = context.shape[0]
-                one_hop_seed_sets = []
-                two_hop_seed_sets = []
-                for b in range(batch_size):
-                    seed_set = entity[b].nonzero().view(-1).tolist()
-                    words = concept_vec[b].nonzero().view(-1).tolist()
-                    one_hop_set = one_hop_vec[b].nonzero().view(-1).tolist()
-                    two_hop_set = two_hop_vec[b].nonzero().view(-1).tolist()
-                    seed_sets.append(seed_set)
-                    batch_words.extend(words)
-                    lookup_words.append(words)
-                    batch_entities.extend(seed_set)
-                    one_hop_seed_sets.append(one_hop_set)
-                    two_hop_seed_sets.append(two_hop_set)         
-                    
-                word_item_pairs = [(x,y) for x in batch_words for y in batch_entities]
-                word_item_pairs.extend([(y,x) for x in batch_words for y in batch_entities])
-                
-                (
-                    scores,
-                    preds,
-                    rec_scores,
-                    rec_loss,
-                    _,
-                    mask_loss,
-                    info_db_loss,
-                    info_con_loss,
-                ) = self.model(
-                    context.cuda(),
-                    response.cuda(),
-                    mask_response.cuda(),
-                    concept_mask,
-                    dbpedia_mask,
-                    seed_sets,
-                    movie,
-                    concept_vec,
-                    db_vec,
-                    entity_vector.cuda(),
-                    rec,
-                    word_item_pairs,
-                    lookup_words,
-                    one_hop_seed_sets,
-                    two_hop_seed_sets,
-                    test=True,
-                    maxlen=20,
-                    bsz=batch_size,
-                    pretrain = False
-                )
-                
-#             wandb.log({"test_rec_loss": rec_loss})
-#             wandb.log({"test_info_loss": info_db_loss})
-
-            outputs = rec_scores.cpu()
-            #get all prediction scores of movies
-            #movie_ids is a list of indexes of movies in the entity2entityid_dict
-            outputs = outputs[:, torch.LongTensor(self.movie_ids)]
-            #pred_idx = top_k indices of preidction scores
-            _, pred_idx = torch.topk(outputs, k=100, dim=1)
-
-            #for all batch
-            for b in range(batch_size):
-    #             if label is a pad movie, then we skip ??
-                if movie[b].item() == 0:
-                    continue
-                #get target movie idx by finding the label in the movie_set ids.
-                target_idx = self.movie_ids.index(movie[b].item())
-                
-                result_dict = {}
-                result_dict['context'] = concept_mask[b].cpu().detach().numpy().tolist()
-                result_dict['seed_sets'] = seed_sets[b]
-                
-                #get top-50 prediction
-                result_dict['prediction'] = pred_idx[b][:10].tolist()
-                result_dict['label'] = target_idx
-                result_dict['movie'] = movie[b]
-                
-                results.append(result_dict)
-        
-        with open('results.pkl','wb') as f:
-            pickle.dump(results, f)
-
 
     @classmethod
     def optim_opts(self):
@@ -800,7 +634,7 @@ class TrainLoop_fusion_rec:
         """
         loss.backward()
 
-    def update_params(self, pretrain = False):
+    def update_params(self):
         """
         Perform step of optimization, clipping gradients and adjusting LR
         schedule if needed. Gradient accumulation is also performed if agent
@@ -822,9 +656,6 @@ class TrainLoop_fusion_rec:
             )
 
         self.optimizer.step()
-        if not pretrain:
-            self.lr_scheduler.step()
-    
 
     def zero_grad(self):
         """
@@ -834,19 +665,6 @@ class TrainLoop_fusion_rec:
         gradient accumulation if agent is called with --update-freq.
         """
         self.optimizer.zero_grad()
-    
-    def save_latent_vectors(self):
-        
-        db_node_vectors, concept_node_vectors = self.model.save_latent_vectors()
-        
-        db_node_vectors = db_node_vectors.detach().cpu().numpy()
-        concept_node_vectors = concept_node_vectors.detach().cpu().numpy()
-        
-        with open('db_latent_vectors.pkl','wb') as f:
-            pickle.dump(db_node_vectors, f)
-        
-        with open('concept_node_vectors.pkl','wb') as f:
-            pickle.dump(concept_node_vectors, f)
 
 
 class TrainLoop_fusion_gen:
@@ -867,7 +685,7 @@ class TrainLoop_fusion_gen:
             self.load_data = False
         self.is_finetune = False
 
-        self.movie_ids = pkl.load(open("generated_data/final_movie_ids.pkl", "rb"))
+        self.movie_ids = pkl.load(open("data/movie_ids.pkl", "rb"))
         # Note: we cannot change the type of metrics ahead of time, so you
         # should correctly initialize to floats or ints here
 
@@ -915,13 +733,18 @@ class TrainLoop_fusion_gen:
             self.model.cuda()
 
     def train(self):
-        self.model.load_model(name='wo_kg_final_recommendation_model.pkl')
+        self.model.load_model()
         losses = []
-        best_val_gen = -1
+        best_val_gen = 1000
         gen_stop = False
-        for i in range(self.epoch * 3):
 
-            print(f'Epoch: {i+ 1}')
+        neg_edge_index = negative_sampling(
+                edge_index=self.model.word_item_edge_sets, num_nodes=90000,
+                num_neg_samples = 10 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
+    
+        self.model.neg_edge_index = neg_edge_index
+
+        for i in range(self.epoch * 3):
 
             train_set = CRSdataset(
                 self.train_dataset.data_process(True),
@@ -949,22 +772,10 @@ class TrainLoop_fusion_gen:
                 rec,
             ) in tqdm(train_dataset_loader):
                 seed_sets = []
-                batch_words = []
-                batch_entities = []
-                lookup_words = []
                 batch_size = context.shape[0]
                 for b in range(batch_size):
                     seed_set = entity[b].nonzero().view(-1).tolist()
-                    words = concept_vec[b].nonzero().view(-1).tolist()
                     seed_sets.append(seed_set)
-                    batch_words.extend(words)
-                    lookup_words.append(words)
-                    batch_entities.extend(seed_set)
-                
-#                 batch_entities.extend(movie.detach().cpu().numpy().tolist())
-                    
-                word_item_pairs = [(x,y) for x in batch_words for y in batch_entities]
-                word_item_pairs.extend([(y,x) for x in batch_words for y in batch_entities])
                 self.model.train()
                 self.zero_grad()
 
@@ -989,34 +800,35 @@ class TrainLoop_fusion_gen:
                     db_vec,
                     entity_vector.cuda(),
                     rec,
-                    word_item_pairs,
-                    lookup_words,
                     test=False,
+                    pretrain = False
                 )
 
-                joint_loss = gen_loss
-                losses.append([gen_loss])
+                joint_loss = gen_loss + mask_loss * 0
+
+                losses.append([gen_loss, mask_loss])
                 self.backward(joint_loss)
                 self.update_params()
                 if num % 50 == 0:
                     print(
                         "gen loss is %f" % (sum([l[0] for l in losses]) / len(losses))
                     )
+                    print(
+                        "bag of concept loss is %f" % (sum([l[1] for l in losses]) / len(losses))
+                    )
                     losses = []
                 num += 1
 
-            output_metrics_gen = self.val(is_test=False)
-            
-            if best_val_gen > output_metrics_gen["dist4"]:
+            output_metrics_gen = self.val(False)
+            if best_val_gen < output_metrics_gen["dist4"]:
                 pass
             else:
                 best_val_gen = output_metrics_gen["dist4"]
-#                 self.model.save_model()
-                self.model.save_model(name='wo_kg_final_generation_model.pkl')
+                self.model.save_model()
                 print(
                     "generator model saved once------------------------------------------------"
                 )
-        self.model.load_model(name='wo_kg_final_generation_model.pkl')
+
         _ = self.val(is_test=True)
 
     def val(self, is_test=False):
@@ -1052,6 +864,8 @@ class TrainLoop_fusion_gen:
         val_dataset_loader = torch.utils.data.DataLoader(
             dataset=val_set, batch_size=self.batch_size, shuffle=False
         )
+        
+                        
         inference_sum = []
         golden_sum = []
         context_sum = []
@@ -1075,21 +889,10 @@ class TrainLoop_fusion_gen:
         ) in tqdm(val_dataset_loader):
             with torch.no_grad():
                 seed_sets = []
-                batch_words = []
-                batch_entities = []
-                lookup_words = []
                 batch_size = context.shape[0]
                 for b in range(batch_size):
                     seed_set = entity[b].nonzero().view(-1).tolist()
-                    words = concept_vec[b].nonzero().view(-1).tolist()
                     seed_sets.append(seed_set)
-                    batch_words.extend(words)
-                    lookup_words.append(words)
-                    batch_entities.extend(seed_set)
-                
-                word_item_pairs = [(x,y) for x in batch_words for y in batch_entities]
-                word_item_pairs.extend([(y,x) for x in batch_words for y in batch_entities])
-                
                 (
                     _,
                     _,
@@ -1111,9 +914,8 @@ class TrainLoop_fusion_gen:
                     db_vec,
                     entity_vector.cuda(),
                     rec,
-                    word_item_pairs,
-                    lookup_words,
                     test=False,
+                    pretrain = False
                 )
                 (
                     scores,
@@ -1136,8 +938,6 @@ class TrainLoop_fusion_gen:
                     db_vec,
                     entity_vector.cuda(),
                     rec,
-                    word_item_pairs,
-                    lookup_words,
                     test=True,
                     maxlen=20,
                     bsz=batch_size,
@@ -1371,12 +1171,8 @@ if __name__ == "__main__":
     else:
         loop = TrainLoop_fusion_gen(vars(args), is_finetune=True)
         # loop.train()
+        loop.model.load_model()
         # met = loop.val(True)
         loop.train()
-    
-#     if args.error_analysis:
-#         loop = TrainLoop_fusion_rec(vars(args), is_finetune=False)
-#         loop.error_analysis()
-    
     met = loop.val(True)
     # print(met)
