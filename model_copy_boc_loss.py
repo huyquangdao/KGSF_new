@@ -295,6 +295,9 @@ class CrossModel(nn.Module):
         
         self.word_item_edge_sets = [[co[0] for co in list(self.word_item_edge_sets)], [co[1] for co in list(self.word_item_edge_sets)]]
         self.word_item_edge_sets =  torch.LongTensor(self.word_item_edge_sets).cuda()
+
+        self.copy_ratio = 0.3
+        self.one_hop_ratio = 0.7
         
         print('number of edges: ',len(self.word_item_edge_sets))
                 
@@ -418,7 +421,7 @@ class CrossModel(nn.Module):
             ).unsqueeze(
                 0
             )  
-            con_logits_1_hop = self.representation_bias_1_hop(copy_latent) * self.mask4.unsqueeze(
+            con_logits_1_hop = self.representation_bias_1_hop(copy_latent_1_hop) * self.mask4key.unsqueeze(
                 0
             ).unsqueeze(
                 0
@@ -430,7 +433,7 @@ class CrossModel(nn.Module):
             # print(mem_logits.size())
             # gate = F.sigmoid(self.gen_gate_norm(scores))
 
-            sum_logits = voc_logits + con_logits + con_logits_1_hop # * (1 - gate)
+            sum_logits = voc_logits + self.copy_ratio * con_logits + self.one_hop_ratio * con_logits_1_hop # * (1 - gate)
             _, preds = sum_logits.max(dim=-1)
             # scores = F.linear(scores, self.embeddings.weight)
             # print(attention_map)
@@ -533,7 +536,7 @@ class CrossModel(nn.Module):
 
         # logits = self.output(latent)
         con_logits = self.representation_bias(copy_latent) 
-        con_logits_1_hop = self.representation_bias_1_hop(copy_latent) 
+        con_logits_1_hop = self.representation_bias_1_hop(copy_latent_1_hop) 
                 
         # F.linear(copy_latent, self.embeddings.weight)
         logits = F.linear(latent, self.embeddings.weight)
@@ -541,7 +544,7 @@ class CrossModel(nn.Module):
         # print(mem_logits.size())
         # gate=F.sigmoid(self.gen_gate_norm(latent))
 
-        sum_logits = logits + con_logits  * self.mask4.unsqueeze(0).unsqueeze(0) + con_logits_1_hop * self.mask4.unsqueeze(0).unsqueeze(0)
+        sum_logits = logits + self.copy_ratio * con_logits  * self.mask4.unsqueeze(0).unsqueeze(0) + self.one_hop_ratio * con_logits_1_hop * self.mask4key.unsqueeze(0).unsqueeze(0)
         _, preds = sum_logits.max(dim=2)
         return logits, con_logits_1_hop, preds
 

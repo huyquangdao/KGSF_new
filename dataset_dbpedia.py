@@ -123,7 +123,7 @@ class dataset(object):
         self.word2index = json.load(open('word2index_redial.json', encoding='utf-8'))
         self.key2index=json.load(open('key2index_3rd.json',encoding='utf-8'))
         self.stopwords=set([word.strip() for word in open('stopwords.txt',encoding='utf-8')])
-        self.movie_keywords = json.load(open('generated_data/new_dbpedia_new_attribute_genres_company.json'))
+        self.movie_keywords = json.load(open('generated_data/dbpedia_new_attribute_genres_company.json'))
         print(len(self.movie_keywords))
         # key_concepts = json.load(open('generated_data/key_concepts.json'))
 
@@ -187,11 +187,11 @@ class dataset(object):
         #     genres = [word for word in genres if  word in self.key2index]
         #     new_word_item_graph[sample['movie_id']] = genres + new_word_item_graph[sample['movie_id']]
 
-        with open('generated_data/new_dbpedia_word_item_edge_list.json','w') as f:
-            json.dump(new_word_item_graph, f)
+        # with open('generated_data/new_dbpedia_word_item_edge_list.json','w') as f:
+        #     json.dump(new_word_item_graph, f)
         
-        with open('generated_data/new_dbpedia_word_item_edge_list.json','r') as f:
-            word_item_edge_list = json.load(f)
+        # with open('generated_data/new_dbpedia_word_item_edge_list.json','r') as f:
+        #     word_item_edge_list = json.load(f)
 
         #self.co_occurance_ext(self.data)
         #exit()

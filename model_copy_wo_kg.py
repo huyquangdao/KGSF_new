@@ -623,7 +623,11 @@ class CrossModel(nn.Module):
         # graph network
         
         db_nodes_features = self.db_embeddings.weight
-        con_nodes_features = self.concept_embeddings.weight
+        # con_nodes_features = self.concept_embeddings.weight
+        con_nodes_features = self.concept_GCN(
+            self.concept_embeddings.weight, self.concept_edge_sets
+        )
+        
         #concat kgs
         ##removing word_item_edges_pairs, there are some problems with this line
         if pretrain == True:
