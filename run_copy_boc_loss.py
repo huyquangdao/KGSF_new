@@ -355,7 +355,7 @@ class TrainLoop_fusion_rec:
 #         wandb.watch(self.model)
 
         neg_edge_index = negative_sampling(
-                edge_index=self.model.word_item_edge_sets, num_nodes=90000,
+                edge_index=self.model.word_item_edge_sets, num_nodes=6000,
                 num_neg_samples = 5 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
     
         self.model.neg_edge_index = neg_edge_index
