@@ -128,7 +128,6 @@ class dataset(object):
             self.key_words_pool.extend(words)
         
         self.key_words_pool = set(self.key_words_pool)
-        
         print(len(self.key_words_pool))
                                    
 #         word_item_edge_list = self.generate_word_item_edge_list()
