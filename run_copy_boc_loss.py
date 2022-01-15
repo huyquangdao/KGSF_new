@@ -220,138 +220,8 @@ class TrainLoop_fusion_rec:
         best_val_rec = 0
         rec_stop = False
 
-        if self.train_MIM:
-
-            print("Pretraining MIM objective ... ")
-            for i in range(1):
-                
-                print('Generate data for link prediction task ......')
-                train_set = CRSdataset(
-                    self.train_dataset.data_process(),
-                    self.opt["n_entity"],
-                    self.opt["n_concept"],
-                )
-                train_dataset_loader = torch.utils.data.DataLoader(
-                    dataset=train_set, batch_size=self.batch_size, shuffle=False
-                )
-                num = 0
-                all_pairs_words = []
-                for (
-                    context,
-                    c_lengths,
-                    response,
-                    r_length,
-                    mask_response,
-                    mask_r_length,
-                    entity,
-                    entity_vector,
-                    movie,
-                    concept_mask,
-                    dbpedia_mask,
-                    concept_vec,
-                    db_vec,
-                    rec,
-                ) in tqdm(train_dataset_loader):
-                        seed_sets = []
-                        batch_words = []
-                        batch_entities = []
-    #                     iterations += 1
-                        batch_size = context.shape[0]
-                        lookup_words = []
-                        for b in range(batch_size):
-                            seed_set = entity[b].nonzero().view(-1).tolist()
-                            words = concept_vec[b].nonzero().view(-1).tolist()
-                            seed_sets.append(seed_set)
-                            batch_words.extend(words)
-                            batch_entities.extend(seed_set)
-                            lookup_words.append(words)
-                            batch_entities.extend(movie.detach().cpu().numpy().tolist())
-
-                        word_item_pairs = [(x,y) for x in batch_words for y in batch_entities]
-                        word_item_pairs.extend([(y,x) for x in batch_words for y in batch_entities])
-
-                        all_pairs_words.extend(set(word_item_pairs))
-
-                self.model.current_word_item_sets = set(self.model.word_item_edge_sets) - set(all_pairs_words)
-
-                print('number of edges after removing sampled edges: ',len(self.model.current_word_item_sets))
-                print('Train link prediction task ......')
-
-                for (
-                context,
-                c_lengths,
-                response,
-                r_length,
-                mask_response,
-                mask_r_length,
-                entity,
-                entity_vector,
-                movie,
-                concept_mask,
-                dbpedia_mask,
-                concept_vec,
-                db_vec,
-                rec,
-            ) in tqdm(train_dataset_loader):
-                    seed_sets = []
-                    batch_words = []
-                    batch_entities = []
-#                     iterations += 1
-                    batch_size = context.shape[0]
-                    lookup_words = []
-                    for b in range(batch_size):
-                        seed_set = entity[b].nonzero().view(-1).tolist()
-                        words = concept_vec[b].nonzero().view(-1).tolist()
-                        seed_sets.append(seed_set)
-                        lookup_words.append(words)
-            
-                    self.model.train()
-                    self.zero_grad()
-
-                    (
-                        scores,
-                        preds,
-                        rec_scores,
-                        rec_loss,
-                        gen_loss,
-                        mask_loss,
-                        info_db_loss,
-                        info_con_loss,
-                    ) = self.model(
-                        context.cuda(),
-                        response.cuda(),
-                        mask_response.cuda(),
-                        concept_mask,
-                        dbpedia_mask,
-                        seed_sets,
-                        movie,
-                        concept_vec,
-                        db_vec,
-                        entity_vector.cuda(),
-                        rec,
-                        None,
-                        lookup_words,
-                        test=False,
-                    )
-
-                    joint_loss = info_db_loss + info_con_loss
-
-                    losses.append([info_db_loss])
-                    self.backward(joint_loss)
-                    self.update_params()
-                    if num % 50 == 0:
-                        print(
-                            "info db loss is %f"
-                            % (sum([l[0] for l in losses]) / len(losses))
-                        )
-                        # print('info con loss is %f'%(sum([l[1] for l in losses])/len(losses)))
-                        losses = []
-                    num += 1
-
-            # print("masked loss pre-trained")
 
         print("Recommendation training ......")
-        
 #         wandb.watch(self.model)
 
         neg_edge_index = negative_sampling(
@@ -409,8 +279,8 @@ class TrainLoop_fusion_rec:
                     rec_loss,
                     gen_loss,
                     mask_loss,
-                    info_db_loss,
-                    info_con_loss,
+                    link_prediction_loss,
+                    _,
                 ) = self.model(
                     context.cuda(),
                     response.cuda(),
@@ -430,10 +300,10 @@ class TrainLoop_fusion_rec:
                 )
 
                 joint_loss = (
-                    rec_loss + self.info_loss_ratio * info_db_loss + self.info_loss_ratio * info_con_loss
+                    rec_loss + self.info_loss_ratio * link_prediction_loss
                 )  # +0.0*info_con_loss#+mask_loss*0.05
                 
-                losses.append([rec_loss, info_db_loss])
+                losses.append([rec_loss, link_prediction_loss])
                 self.backward(joint_loss)
                 self.update_params()
                 if num % 50 == 0:
@@ -441,24 +311,13 @@ class TrainLoop_fusion_rec:
                         "rec loss is %f" % (sum([l[0] for l in losses]) / len(losses))
                     )
                     print(
-                        "info db loss is %f"
+                        "link prediction loss is %f"
                         % (sum([l[1] for l in losses]) / len(losses))
                     )
                     losses = []
-                if iterations % 400 == 0:
-                    print(f"Evaluate model on test set at {iterations} step....")
-                    output_metrics_rec = self.val(is_test=True)
-                    self.logs[iterations] = {
-                        "recall@1": output_metrics_rec["recall@1"],
-                        "recall@10": output_metrics_rec["recall@10"],
-                        "recall@50": output_metrics_rec["recall@50"],
-                    }
                 num += 1
-                
-                
-
+        
             output_metrics_rec = self.val()
-
             if (
                 best_val_rec
                 > output_metrics_rec["recall@50"] + output_metrics_rec["recall@1"]
@@ -777,8 +636,8 @@ class TrainLoop_fusion_gen:
         gen_stop = False
 
         neg_edge_index = negative_sampling(
-                edge_index=self.model.word_item_edge_sets, num_nodes=90000,
-                num_neg_samples = 10 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
+                edge_index=self.model.word_item_edge_sets, num_nodes=6000,
+                num_neg_samples = 5 * self.model.word_item_edge_sets.size(1) , method='sparse').cuda()
     
         self.model.neg_edge_index = neg_edge_index
 
@@ -851,12 +710,12 @@ class TrainLoop_fusion_gen:
                         "gen loss is %f" % (sum([l[0] for l in losses]) / len(losses))
                     )
                     print(
-                        "boc loss is %f" % (sum([l[1] for l in losses]) / len(losses))
+                        "bow loss is %f" % (sum([l[1] for l in losses]) / len(losses))
                     )
                     losses = []
                 num += 1
 
-            output_metrics_gen = self.val(True)
+            output_metrics_gen = self.val()
             if best_val_gen < output_metrics_gen["dist4"]:
                 pass
             else:

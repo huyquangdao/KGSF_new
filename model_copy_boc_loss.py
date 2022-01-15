@@ -729,10 +729,10 @@ class CrossModel(nn.Module):
                 ], dim=0)
                 
             out = (word_item_features[edge_label_index[0]] * word_item_features[edge_label_index[1]]).sum(dim=-1).view(-1)
-            info_db_loss = self.link_criterion(out, edge_label.cuda())
+            link_prediction_loss = self.link_criterion(out, edge_label.cuda())
             info_con_loss = 0
         else: 
-            info_db_loss = 0
+            link_prediction_loss = 0
             info_con_loss = 0
             
         # entity_scores = F.softmax(entity_scores.cuda(), dim=-1).cuda()
@@ -789,7 +789,7 @@ class CrossModel(nn.Module):
             rec_loss,
             gen_loss,
             boc_loss,
-            info_db_loss,
+            link_prediction_loss,
             info_con_loss,
         )
 
