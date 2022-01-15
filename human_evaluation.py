@@ -95,16 +95,12 @@ def generate_human_evaluation_data(file_name):
                 pass
     print(count_dict)
 
-    print('item ratio in cold-start cases: ')
-    print('kgsf: ',count_dict['k_r']/ total_cold_start_cases)
-    print('revcore: ', count_dict['r_r']/total_cold_start_cases)
-    print('ours: ', count_dict['o_r']/total_cold_start_cases)
+    with open('cold_start_item_ratio_results.txt', 'w') as f:
+        f.write(f"kgsf: {count_dict['k_r']/ total_cold_start_cases}")
+        f.write('\n')
+        f.write(f"revcore: {count_dict['r_r']/total_cold_start_cases}")
+        f.write('\n')
+        f.write(f"ours: {count_dict['o_r']/total_cold_start_cases}")
+        f.write('\n')
 
 generate_human_evaluation_data('human_eval.txt')
-
-# for c, k_r, r_r, o_r in list(zip(contexts, kgsf_respones, revcore_respones, our_model_responses)):
-#     print('context: ',reformulate_context(c, movie_dict))
-#     print('kgsf: ', replace_movie_token_by_movie_name(k_r, movie_dict))
-#     print('revcore: ',replace_movie_token_by_movie_name(r_r, movie_dict))
-#     print('our model: ',replace_movie_token_by_movie_name(o_r, movie_dict))
-#     print('---------------------------')
