@@ -118,7 +118,7 @@ class dataset(object):
 
         self.edge_list, self.relation_counts = _edge_list_1(self.subkg, 64368, hop=2)
         
-        with open('generated_data/dbpedia_word_item_edge_list.json','r') as f:
+        with open('dbpedia_word_item_edge_list.json','r') as f:
             self.word_item_edge_list = json.load(f)
                                          
         self.word_item_kg = json.load(open('processed_word_item_edge_list.json'))                
