@@ -69,9 +69,7 @@ def generate_human_evaluation_data(file_name):
             # print('---------------------------')
             try:
                 if  "@" not in c:
-                    
                     total_cold_start_cases +=1
-
                     if "@" in k_r:
                         count_dict['k_r'] +=1
                     if "@" in r_r:

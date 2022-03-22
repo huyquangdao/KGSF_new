@@ -230,25 +230,25 @@ class CrossModel(nn.Module):
             self.pad_idx,
             n_positions=n_positions,
         )
-        self.db_norm = nn.Linear(2 * opt["dim"], opt["embedding_size"])
-        self.kg_norm = nn.Linear(2 * opt["dim"], opt["embedding_size"])
+        self.db_norm = nn.Linear(opt["dim"], opt["embedding_size"])
+        self.kg_norm = nn.Linear(opt["dim"], opt["embedding_size"])
 
-        self.db_attn_norm = nn.Linear(2 * opt["dim"], opt["embedding_size"])
-        self.kg_attn_norm = nn.Linear(2 * opt["dim"], opt["embedding_size"])
+        self.db_attn_norm = nn.Linear(opt["dim"], opt["embedding_size"])
+        self.kg_attn_norm = nn.Linear(opt["dim"], opt["embedding_size"])
 
         self.criterion = nn.CrossEntropyLoss(reduce=False)
 
-        self.self_attn = SelfAttentionLayer_batch(2 * opt["dim"], 2 * opt["dim"])
+        self.self_attn = SelfAttentionLayer_batch(opt["dim"], opt["dim"])
         self.proj_self_attn = SelfAttentionLayer_batch(opt["dim"], opt["dim"])
 
-        self.self_attn_db = SelfAttentionLayer(2  * opt["dim"], 2 * opt["dim"])
+        self.self_attn_db = SelfAttentionLayer(opt["dim"], opt["dim"])
         self.self_attn_con = SelfAttentionLayer(2 * opt["dim"], 2 * opt["dim"])
         
         self.self_attn_con_edge = SelfAttentionLayer(opt["dim"], opt["dim"])
         
         self.proj_self_attn_db = SelfAttentionLayer(opt["dim"], opt["dim"])
 
-        self.user_norm = nn.Linear(opt["dim"] * 4, opt["dim"])
+        self.user_norm = nn.Linear(opt["dim"] * 2, opt["dim"])
         self.gate_norm = nn.Linear(opt["dim"], 1)
         self.copy_norm = nn.Linear(
             opt["embedding_size"] * 2 + opt["embedding_size"], opt["embedding_size"]
@@ -307,6 +307,9 @@ class CrossModel(nn.Module):
 #         self.word_item_edge_type = self.word_item_edge_sets[:, 2]
 
         self.boc_criterion = nn.BCEWithLogitsLoss(size_average=False, reduce=False)
+
+        self.w_e = nn.Linear(2 * self.dim, self.dim)
+        self.w_w = nn.Linear(2 * self.dim, self.dim)
               
         self.GAT_1 = GATConv(self.dim, self.dim)
         self.GCN_1 = GCNConv(self.dim, self.dim)
@@ -678,17 +681,17 @@ class CrossModel(nn.Module):
         word_item_features = F.leaky_relu(self.GCN_2(word_item_features, current_word_item_edge_sets))
 
         w_item_embedding = word_item_features[:self.opt['n_entity']]
-        entities_features = torch.cat([db_nodes_features, w_item_embedding], dim =-1)
+        entities_features = self.w_e(torch.cat([db_nodes_features, w_item_embedding], dim =-1))
 
         w_word_embedding = word_item_features[self.opt['n_entity']:]
-        word_features = torch.cat([con_nodes_features, w_word_embedding ], dim =-1)
+        word_features = self.w_w(torch.cat([con_nodes_features, w_word_embedding ], dim =-1))
         
         proj_user_representation_list = []
         db_con_mask = []
 
         for i, seed_set in enumerate(seed_sets):
             if seed_set == []:
-                proj_user_representation_list.append(torch.zeros(2 * self.dim).cuda())
+                proj_user_representation_list.append(torch.zeros(self.dim).cuda())
                 db_con_mask.append(torch.zeros([1]))
                 continue
             
